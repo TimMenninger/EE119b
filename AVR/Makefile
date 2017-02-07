@@ -4,10 +4,15 @@
 
 TESTFILE = test_system
 
-test:
-	ghdl -a --ieee=synopsys -fexplicit *.vhd
-	ghdl -e --ieee=synopsys -fexplicit test_system
-	ghdl -r test_system
+alutest:
+	ghdl -a --ieee=synopsys -fexplicit $(shell find . ! -name "test_regs.*" -name "*.vhd")
+	ghdl -e --ieee=synopsys -fexplicit alu_testbench
+	ghdl -r alu_testbench
+
+regtest:
+	ghdl -a --ieee=synopsys -fexplicit $(shell find . ! -name "test_alu.*" -name "*.vhd")
+	ghdl -e --ieee=synopsys -fexplicit regs_testbench
+	ghdl -r regs_testbench
 
 clean:
-	rm -f *.o *.cf *.ucf *.lst test_system
+	rm -rf *.o *.cf *.ucf *.lst alu_testbench regs_testbench testcases/__pycache__

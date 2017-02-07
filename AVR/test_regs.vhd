@@ -50,7 +50,7 @@ entity  TEST_REG  is
     );
 end  TEST_REG;
 
-architecture testbench of TEST_REG is
+architecture toplevel of TEST_REG is
 
     -- Registers component we are testing
     component ControlUnit is
@@ -61,10 +61,11 @@ architecture testbench of TEST_REG is
             instruction : in  std_logic_vector(15 downto 0);-- instruction
 
             BLD         : out std_logic;                    -- '1' when BLD
+            BST         : out std_logic;                    -- '1' when BST
 
             sel         : out std_logic_vector(2 downto 0); -- selects flag index
             flagMask    : out std_logic_vector(7 downto 0); -- status bits affected
-            byte        : out std_logic;                    -- byte index of result
+            clkIdx      : out natural range 0 to 3;         -- byte index of result
             ENRes       : out std_logic;                    -- set SREG to R
 
             immed       : out std_logic_vector(7 downto 0); -- immediate value
@@ -76,7 +77,7 @@ architecture testbench of TEST_REG is
 
             regSelA     : out std_logic_vector(4 downto 0); -- register A select
             regSelB     : out std_logic_vector(4 downto 0); -- register B select
-            ENReg01     : out std_logic;                    -- write to registers 0 and 1
+            ENMul       : out std_logic;                    -- write to registers 0 and 1
             ENSwap      : out std_logic;                    -- SWAP instruction
             ENRegA      : out std_logic;                    -- enable register A
             ENRegB      : out std_logic;                    -- enable register B
@@ -98,7 +99,7 @@ architecture testbench of TEST_REG is
 
             regSelA     : in  std_logic_vector(4 downto 0); -- register select
             regSelB     : in  std_logic_vector(4 downto 0); -- register select
-            ENReg01     : in  std_logic;                    -- write to registers 0 and 1
+            ENMul         : in  std_logic;                    -- write to registers 0 and 1
             ENSwap      : in  std_logic;                    -- swap nibbles
             ENRegA      : in  std_logic;                    -- active low enable reg A
             ENRegB      : in  std_logic;                    -- active low enable reg B
@@ -115,10 +116,10 @@ architecture testbench of TEST_REG is
     signal reset       : std_logic := '1';
 
     signal BLD         : std_logic;
+    signal BST         : std_logic;
 
     signal sel         : std_logic_vector(2 downto 0);
     signal flagMask    : std_logic_vector(7 downto 0);
-    signal byte        : std_logic;
     signal ENRes       : std_logic;
 
     signal immed       : std_logic_vector(7 downto 0);
@@ -130,7 +131,7 @@ architecture testbench of TEST_REG is
 
     signal regSelA     : std_logic_vector(4 downto 0);
     signal regSelB     : std_logic_vector(4 downto 0);
-    signal ENReg01     : std_logic;
+    signal ENMul       : std_logic;
     signal ENSwap      : std_logic;
     signal ENRegA      : std_logic;
     signal ENRegB      : std_logic;
@@ -145,9 +146,6 @@ architecture testbench of TEST_REG is
 
 begin
 
-    -- Set clock index based on byte
-    clkIdx <= 1 when byte = '1' else 0
-
     ControlUUT : ControlUnit
         port map (
             clk,
@@ -156,10 +154,11 @@ begin
             IR,
 
             BLD,
+            BST,
 
             sel,
             flagMask,
-            byte,
+            clkIdx,
             ENRes,
 
             immed,
@@ -171,7 +170,7 @@ begin
 
             regSelA,
             regSelB,
-            ENReg01,
+            ENMul,
             ENSwap,
             ENRegA,
             ENRegB,
@@ -191,7 +190,7 @@ begin
 
             regSelA,
             regSelB,
-            ENReg01,
+            ENMul,
             ENSwap,
             ENRegA,
             ENRegB,
@@ -202,5 +201,131 @@ begin
             RegAOut,    -- Test entity output
             RegBOut     -- Test entity output
         );
+
+end architecture;
+
+----------------------------------------------------------------------------
+--
+--  This is the entity that actually tests the registers
+--
+--  Revision History:
+--      1 Feb 17  Tim Menninger     Created
+--
+----------------------------------------------------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.numeric_std.all;
+use std.textio.all;
+use ieee.std_logic_textio.all;
+
+entity REGS_TESTBENCH is
+end REGS_TESTBENCH;
+
+architecture testbench of REGS_TESTBENCH is
+
+    -- Independent component that tests registers
+    component TEST_REG is
+
+        port(
+            IR        :  in  std_logic_vector(15 downto 0);     -- Instruction Register
+            RegIn     :  in  std_logic_vector(7 downto 0);       -- input register bus
+            clk       :  in  std_logic;                          -- system clock
+            RegAOut   :  out std_logic_vector(7 downto 0);       -- register bus A out
+            RegBOut   :  out std_logic_vector(7 downto 0)        -- register bus B out
+        );
+
+    end component;
+
+    -- Test case files
+    file REG_vectors: text;
+
+    -- All the variables we need
+    signal clk          : std_logic := '0';
+    signal IR           : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal regIn        : std_logic_vector(7 downto 0)  := "00000000";
+    signal regAOut      : std_logic_vector(7 downto 0)  := "00000000";
+    signal regBOut      : std_logic_vector(7 downto 0)  := "00000000";
+
+    -- Signifies end of simulation
+    signal END_SIM      : boolean := FALSE;
+
+begin
+
+    REG_UUT : TEST_REG
+        port map (IR, regIn, clk, regAOut, regBOut);
+
+    DO_REG_TEST: process
+        -- Variables for reading register test file
+        variable currLine       : line;
+        variable instruction    : std_logic_vector(15 downto 0);
+        variable nextRegIn      : std_logic_vector(7 downto 0);
+        variable expRegAOut     : std_logic_vector(7 downto 0);
+        variable expRegBOut     : std_logic_vector(7 downto 0);
+        variable delimiter      : character;
+    begin
+        -- Open the testcase file
+        file_open(REG_vectors, "testcases/REG_vectors.txt", read_mode);
+
+        -- Wait a few clocks
+        wait for 200 ns;
+
+        -- Skip first line
+        readline(REG_vectors, currLine);
+
+        -- Go trough every test case
+        while not endfile(REG_vectors) loop
+            -- Parse the line
+            readline(REG_vectors, currLine);
+            read(currLine, instruction);
+            read(currLine, delimiter);
+            read(currLine, nextRegIn);
+            read(currLine, delimiter);
+            read(currLine, expRegAOut);
+            read(currLine, delimiter);
+            read(currLine, expRegBOut);
+
+            -- Instruction comes in short after clock rising edge
+            wait for 5 ns;
+            IR <= instruction;
+
+            -- Allow time for computation then check output and simulate result writeback
+            wait for 40 ns;
+            assert (std_match(regAOut, expRegAOut))
+                report  "incorrect register A output"
+                severity  ERROR;
+            assert (std_match(regBOut, expRegBOut))
+                report  "incorrect register B output"
+                severity  ERROR;
+            regIn <= nextRegIn;
+
+            -- Finish clock cycle then repeat
+            wait for 5 ns;
+        end loop;
+        file_close(REG_vectors);
+
+        -- Done simulation
+        END_SIM <= TRUE;
+    end process;
+
+    -- this process generates a 50 ns period, 50% duty cycle clock
+    CLOCK_CLK : process
+    begin
+        -- only generate clock if still simulating
+        if END_SIM = FALSE then
+            clk <= '1';
+            wait for 25 ns;
+        else
+            wait;
+        end if;
+
+        if END_SIM = FALSE then
+            clk <= '0';
+            wait for 25 ns;
+        else
+            wait;
+        end if;
+    end process;
 
 end architecture;

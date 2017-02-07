@@ -39,7 +39,7 @@ use ieee.numeric_std.all;
 --          Selects which output to read or write to for register A
 --      regSelB : std_logic_vector(4 downto 0)
 --          Selects which output to read or write to for register B
---      ENReg01 : std_logic
+--      ENMul : std_logic
 --          Active low to indicate that result should be written to word comprised
 --          of registers 0 and 1
 --      ENSwap : std_logic
@@ -78,7 +78,7 @@ use ieee.numeric_std.all;
 entity Registers is
     port (
         clk         : in  std_logic;                    -- system clock
-        clkIdx      : in  std_logic;                    -- number of clocks since instr
+        clkIdx      : in  natural range 0 to 3;         -- number of clocks since instr
         dataIn      : in  std_logic_vector(7 downto 0); -- data input
 
         BLD         : in  std_logic;                    -- true when BLD occurring
@@ -87,7 +87,7 @@ entity Registers is
 
         regSelA     : in  std_logic_vector(4 downto 0); -- register select
         regSelB     : in  std_logic_vector(4 downto 0); -- register select
-        ENReg01     : in  std_logic;                    -- write to registers 0 and 1
+        ENMul       : in  std_logic;                    -- write to registers 0 and 1
         ENSwap      : in  std_logic;                    -- swap nibbles
         ENRegA      : in  std_logic;                    -- active low enable reg A
         ENRegB      : in  std_logic;                    -- active low enable reg B
@@ -121,31 +121,14 @@ architecture selReg of Registers is
 
 begin
 
-    -------------------------------------------------------------------------------------
-    --
-    -- process readRegs
-    --
-    -- This process is responsible for transmitting the requested register onto the
-    -- output ports.  It is combinational and never updates registered values.
-    --
-    readRegs: process (ENRegA, ENRegB, regSelA, regSelB, ENRead, regs, sel) is
-    begin
-        -- Only propagate registers to outputs if we are reading
-        if (ENRead = '0') then
-            -- If either is enabled, turn on the output instead of hi-Z
-            if (ENRegA = '0') then
-                dataOutA <= regs(conv_integer(regSelA));
-            end if;
-            if (ENRegB = '0') then
-                dataOutB <= regs(conv_integer(regSelB));
-            end if;
+    -- Set Rdb for BLD case
+    Rdb <= regs(conv_integer(regSelA))(conv_integer(sel));
 
-        end if;
+    -- Propagate register A data to output
+    dataOutA <= regs(conv_integer(regSelA));
 
-        -- Set Rdb in case BLD is occurring
-        Rdb <= regs(conv_integer(regSelA))(conv_integer(sel));
-
-    end process readRegs;
+    -- Propagate register B data to output
+    dataOutB <= regs(conv_integer(regSelB));
 
     -------------------------------------------------------------------------------------
     -- process writeRegs
@@ -168,11 +151,8 @@ begin
             --      SWAP done here, not somewhere else to be written here
             --      BLD done here
             if (ENWrite = '0') then
-                if (ENRegA = '0' and clkIdx = '0') then
-                    regs(conv_integer(regSelA)) <= dataIn;
-                end if;
-                if (ENRegA = '0' and clkIdx = '1') then
-                    regs(conv_integer(regSelA) + 1) <= dataIn;
+                if (ENRegA = '0') then
+                    regs(conv_integer(regSelA) + clkIdx) <= dataIn;
                 end if;
                 if (ENRegB = '0' and ENRead = '0') then
                     regs(conv_integer(regSelB)) <= regs(conv_integer(regSelA));
@@ -182,15 +162,10 @@ begin
                 end if;
             end if;
 
-            if (ENReg01 = '0' and clkIdx = '0') then
+            if (ENMul = '0') then
                 -- On the first clock, we write to register 0.  On second clock, we
                 -- write to register 1.  Use clkIdx as offset.
-                regs(0) <= dataIn;
-            end if;
-            if (ENReg01 = '0' and clkIdx = '1') then
-                -- On the first clock, we write to register 0.  On second clock, we
-                -- write to register 1.  Use clkIdx as offset.
-                regs(1) <= dataIn;
+                regs(clkIdx) <= dataIn;
             end if;
 
             if (ENSwap = '0') then

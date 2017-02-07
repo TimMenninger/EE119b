@@ -57,7 +57,7 @@ entity  TEST_ALU  is
 
 end  TEST_ALU;
 
-architecture testbench of TEST_ALU is
+architecture toplevel of TEST_ALU is
 
     -- ALU component we are testing
     component ALU is
@@ -72,6 +72,9 @@ architecture testbench of TEST_ALU is
             ENImmed     : in  std_logic;                    -- opcode uses immed
             ENInvOp     : in  std_logic;                    -- negate operand
             ENInvRes    : in  std_logic;                    -- negate result
+
+            ENMul       : in  std_logic;                    -- active (low) when MUL
+            clkIdx      : in  natural range 0 to 3;         -- num clks since instrctn
 
             Rd0         : out std_logic;                    -- bit 0 of operand A
             Rd3         : out std_logic;                    -- bit 3 of operand A
@@ -95,7 +98,7 @@ architecture testbench of TEST_ALU is
 
             regSelA     : in  std_logic_vector(4 downto 0); -- register select
             regSelB     : in  std_logic_vector(4 downto 0); -- register select
-            ENReg01     : in  std_logic;                    -- write to registers 0 and 1
+            ENMul     : in  std_logic;                    -- write to registers 0 and 1
             ENSwap      : in  std_logic;                    -- swap nibbles
             ENRegA      : in  std_logic;                    -- active low enable reg A
             ENRegB      : in  std_logic;                    -- active low enable reg B
@@ -121,9 +124,10 @@ architecture testbench of TEST_ALU is
             Rr7         : in  std_logic;                            -- bit 7 of operand B
             Rdb         : in  std_logic;                            -- Bit to set T to
 
+            BST         : in  std_logic;                            -- '1' when in BST
             sel         : in  std_logic_vector(2 downto 0);         -- selects flag index
             mask        : in  std_logic_vector(7 downto 0);         -- masks unaffected flags
-            byte        : in  std_logic;                            -- byte index of result
+            clkIdx      : in  natural range 0 to 3;                 -- clks since instrctn
             ENRes       : in  std_logic;                            -- set SREG to R
 
             TF          : out std_logic;                            -- always sent to regs
@@ -140,10 +144,11 @@ architecture testbench of TEST_ALU is
             instruction : in  std_logic_vector(15 downto 0);-- instruction
 
             BLD         : out std_logic;                    -- '1' when BLD
+            BST         : out std_logic;                    -- '1' when BST
 
             sel         : out std_logic_vector(2 downto 0); -- selects flag index
             flagMask    : out std_logic_vector(7 downto 0); -- status bits affected
-            byte        : out std_logic;                    -- byte index of result
+            clkIdx      : out natural range 0 to 3;         -- clocks since instruction
             ENRes       : out std_logic;                    -- set SREG to R
 
             immed       : out std_logic_vector(7 downto 0); -- immediate value
@@ -155,7 +160,7 @@ architecture testbench of TEST_ALU is
 
             regSelA     : out std_logic_vector(4 downto 0); -- register A select
             regSelB     : out std_logic_vector(4 downto 0); -- register B select
-            ENReg01     : out std_logic;                    -- write to registers 0 and 1
+            ENMul     : out std_logic;                    -- write to registers 0 and 1
             ENSwap      : out std_logic;                    -- SWAP instruction
             ENRegA      : out std_logic;                    -- enable register A
             ENRegB      : out std_logic;                    -- enable register B
@@ -187,17 +192,17 @@ architecture testbench of TEST_ALU is
 
     signal sel      : std_logic_vector(2 downto 0);
     signal flagMask : std_logic_vector(7 downto 0);
-    signal byte     : std_logic;
     signal ENRes    : std_logic;
 
     signal TF       : std_logic;
 
     signal BLD      : std_logic;
-    signal clkIdx   : natural range 0 to 1;
+    signal BST      : std_logic;
+    signal clkIdx   : natural range 0 to 3;
 
     signal regSelA  : std_logic_vector(4 downto 0);
     signal regSelB  : std_logic_vector(4 downto 0);
-    signal ENReg01  : std_logic;
+    signal ENMul    : std_logic;
     signal ENSwap   : std_logic;
     signal ENRegA   : std_logic;
     signal ENRegB   : std_logic;
@@ -215,9 +220,6 @@ begin
     -- Output the result signal being passed around
     Result <= R;
 
-    -- Set clkIdx to natural according to byte
-    clkIdx <= 1 when byte = '1' else 0;
-
     ALUUUT : ALU
         port map (
             OperandA,
@@ -230,6 +232,9 @@ begin
             ENImmed,
             ENInvOp,
             ENInvRes,
+
+            ENMul,
+            clkIdx,
 
             Rd0,
             Rd3,
@@ -252,7 +257,7 @@ begin
 
             regSelA,
             regSelB,
-            ENReg01,
+            ENMul,
             ENSwap,
             ENRegA,
             ENRegB,
@@ -276,9 +281,10 @@ begin
             Rr7,
             Rdb,
 
+            BST,
             sel,
             flagMask,
-            byte,
+            clkIdx,
             ENRes,
 
             TF,
@@ -293,10 +299,11 @@ begin
             IR,
 
             BLD,
+            BST,
 
             sel,
             flagMask,
-            byte,
+            clkIdx,
             ENRes,
 
             immed,
@@ -308,12 +315,144 @@ begin
 
             regSelA,
             regSelB,
-            ENReg01,
+            ENMul,
             ENSwap,
             ENRegA,
             ENRegB,
             ENRegRd,
             ENRegWr
         );
+
+end architecture;
+
+----------------------------------------------------------------------------
+--
+--  This is the entity that actually tests the ALU.
+--
+--  Revision History:
+--      1 Feb 17  Tim Menninger     Created
+--
+----------------------------------------------------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.numeric_std.all;
+use std.textio.all;
+use ieee.std_logic_textio.all;
+
+entity ALU_TESTBENCH is
+end ALU_TESTBENCH;
+
+architecture testbench of ALU_TESTBENCH is
+
+    -- Independent component that tests ALU
+    component TEST_ALU is
+
+        port (
+            IR        :  in  std_logic_vector(15 downto 0);     -- Instruction Register
+            OperandA  :  in  std_logic_vector(7 downto 0);      -- first operand
+            OperandB  :  in  std_logic_vector(7 downto 0);      -- second operand
+            clk       :  in  std_logic;                         -- system clock
+            Result    :  out std_logic_vector(7 downto 0);      -- ALU result
+            StatReg   :  out std_logic_vector(7 downto 0)       -- status register
+        );
+
+    end component;
+
+    -- Test case files
+    file ALU_vectors: text;
+
+    -- All the variables we need
+    signal clk          : std_logic := '0';
+    signal IR           : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal opA          : std_logic_vector(7 downto 0)  := "00000000";
+    signal opB          : std_logic_vector(7 downto 0)  := "00000000";
+    signal result       : std_logic_vector(7 downto 0)  := "00000000";
+    signal status       : std_logic_vector(7 downto 0)  := "00000000";
+
+    -- Signifies end of simulation
+    signal END_SIM      : boolean := FALSE;
+
+begin
+
+    ALU_UUT : TEST_ALU
+        port map (IR, opA, opB, clk, result, status);
+
+    DO_ALU_TEST: process
+        -- Variables for reading ALU test file
+        variable currLine       : line;
+        variable instruction    : std_logic_vector(15 downto 0);
+        variable operandA       : std_logic_vector(7 downto 0);
+        variable operandB       : std_logic_vector(7 downto 0);
+        variable expResult      : std_logic_vector(7 downto 0);
+        variable expStatus      : std_logic_vector(7 downto 0);
+        variable delimiter      : character;
+    begin
+        -- Open the testcase file
+        file_open(ALU_vectors, "testcases/ALU_vectors.txt", read_mode);
+
+        -- Wait a few clocks
+        wait for 200 ns;
+
+        -- First line is column headers
+        readline(ALU_vectors, currLine);
+
+        -- Go trough every test case
+        while not endfile(ALU_vectors) loop
+            -- Parse the line
+            readline(ALU_vectors, currLine);
+            read(currLine, instruction);
+            read(currLine, delimiter);
+            read(currLine, operandA);
+            read(currLine, delimiter);
+            read(currLine, operandB);
+            read(currLine, delimiter);
+            read(currLine, expResult);
+            read(currLine, delimiter);
+            read(currLine, expStatus);
+
+            -- Instruction comes in short after clock rising edge
+            wait for 5 ns;
+            IR <= instruction;
+            opA <= operandA;
+            opB <= operandB;
+
+            -- Allow time for computation then check output and simulate result writeback
+            wait for 40 ns;
+            assert (std_match(result, expResult))
+                report  "incorrect ALU result"
+                severity  ERROR;
+            assert (std_match(status, expStatus))
+                report  "incorrect ALU status output"
+                severity  ERROR;
+
+            -- Finish clock cycle then repeat
+            wait for 5 ns;
+        end loop;
+        file_close(ALU_vectors);
+
+        -- Done simulation
+        END_SIM <= TRUE;
+    end process;
+
+    -- this process generates a 50 ns period, 50% duty cycle clock
+    CLOCK_CLK : process
+    begin
+        -- only generate clock if still simulating
+        if END_SIM = FALSE then
+            clk <= '1';
+            wait for 25 ns;
+        else
+            wait;
+        end if;
+
+        if END_SIM = FALSE then
+            clk <= '0';
+            wait for 25 ns;
+        else
+            wait;
+        end if;
+    end process;
 
 end architecture;

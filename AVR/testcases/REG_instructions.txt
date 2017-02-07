@@ -1,0 +1,233 @@
+-- Need 3+ values. Use 0 if there is no operand. Comments can go to right of line
+BSET 0 0 -- test BSET and get known values for flags
+BSET 1 0
+BSET 2 0
+BSET 3 0
+BSET 4 0
+BSET 5 0
+BSET 6 0
+BSET 7 0
+
+BCLR 0 0 -- test BCLR and make flags 0's
+BCLR 1 0
+BCLR 2 0
+BCLR 3 0
+BCLR 4 0
+BCLR 5 0
+BCLR 6 0
+BCLR 7 0
+
+EOR 0 0 -- set all registers to 0 so we know their values too
+EOR 1 1
+EOR 2 2
+EOR 3 3
+EOR 4 4
+EOR 5 5
+EOR 6 6
+EOR 7 7
+EOR 8 8
+EOR 9 9
+EOR 10 10
+EOR 11 11
+EOR 12 12
+EOR 13 13
+EOR 14 14
+EOR 15 15
+EOR 16 16
+EOR 17 17
+EOR 18 18
+EOR 19 19
+EOR 20 20
+EOR 21 21
+EOR 22 22
+EOR 23 23
+EOR 24 24
+EOR 25 25
+EOR 26 26
+EOR 27 27
+EOR 28 28
+EOR 29 29
+EOR 30 30
+EOR 31 31
+
+DETERMINED -- Now know contents of every register
+
+DEC 1 0 -- Make reg 1 = 255
+ADD 0 0 -- test add.  next tests iterate on dest register so we have real values
+ADD 0 1 -- add 255 to 0
+ADD 1 1 -- add 255 to 255
+
+EOR 0 0
+EOR 1 1
+ADIW 0 128 -- put 128 into reg 0
+ADIW 1 100 -- put 100 into reg 1
+
+ADC 2 0 -- test adc. carry is clear here
+BSET 0 0 -- set carry for next adc test
+ADC 3 1 -- test adc with carry bit set
+
+ADIW 4 255 -- doesn't propagate to reg 5
+ADIW 4 255 -- should propagate to register 5
+ADIW 4 255 -- should add to register 5 and not set it like previous instruction
+ADIW 5 1 -- make sure this doesn't work in sets of 2 registers
+
+AND 5 1 -- reg 1 contains 255. reg 5 shouldn't change
+AND 5 3 -- arbitrary
+AND 6 1 -- reg 6 is 0... should come to 0
+
+ADIW 7 255 -- next instructions are just to set register values
+ADIW 8 0 -- alternating 0, 255, arbitrary
+ADIW 9 25
+ADIW 10 255
+ADIW 11 0
+ADIW 12 101
+ADIW 13 255
+ADIW 14 0
+ADIW 15 150
+
+DEC 16 0 -- makes it 255
+ORI 18 215 -- makes it 215 because all regs are 0
+DEC 19 0
+ORI 21 91
+DEC 22 0
+ORI 24 180
+DEC 25 0
+ORI 27 200
+DEC 28 0
+ORI 30 44
+DEC 31 0
+
+ANDI 7 45 -- reg 7 has 255
+ANDI 8 211 -- reg 8 has 0
+ANDI 9 24 -- reg 9 has 25
+
+ASR 10 0 -- reg 10 has 255
+ASR 11 0 -- reg 11 has 0
+ASR 12 0 -- reg 12 has 101
+
+BSET 0 0
+BCLR 1 0
+BSET 2 0
+BCLR 3 0
+BSET 4 0
+BCLR 5 0
+BSET 6 0
+BCLR 7 0
+
+BLD 0 0 -- testing load from each bit
+BLD 0 1
+BLD 0 2
+BLD 0 3
+BLD 0 4
+BLD 0 5
+BLD 0 6
+BLD 0 7
+
+BST 12 0 -- testing load T from each bit of arbitrary register
+BST 12 1
+BST 12 2
+BST 12 3
+BST 12 4
+BST 12 5
+BST 12 6
+BST 12 7
+
+COM 13 0 -- reg 13 contains 255
+COM 14 0 -- reg 14 contains 0
+COM 15 0 -- reg 15 contains 150
+
+CP 13 14 -- 13 contains 0 14 contains 255
+CP 14 13
+CP 14 15
+
+BCLR 0 0 -- clear carry for first test
+CPC 15 15
+BSET 0 0 -- set carry for same test
+CPC 15 15
+
+CPI 21 0 -- reg 21 contains 91
+CPI 21 91
+CPI 21 92
+
+DEC 14 0 -- decrement 0 to show it goes to 255
+DEC 15 0 -- arbitrary case
+
+EOR 15 21 -- tested eor x x above
+EOR 14 15 -- eor 0 x
+EOR 15 14 -- commutative
+EOR 13 15 -- eor $ff x
+
+INC 16 0 -- reg 16 contains 255
+INC 17 0 -- reg 17 contains 0
+INC 18 0 -- reg 18 contains 250
+
+LSR 19 0 -- reg 19 contains $ff
+LSR 20 0 -- reg 20 contains 0
+LSR 21 0 -- arbitrary case, 91
+
+MUL 17 18 -- 1 and 251
+MUL 16 18 -- 0 and 251
+MUL 18 18 -- should spill into reg 1 (251 and 251)
+
+NEG 16 0 -- negative 0 is 0
+NEG 17 0 -- negative 1 gives $ff
+NEG 18 0 -- arbitrary case
+
+OR 20 19 -- $ff or 0, tests 0 and $ff at once
+OR 20 21 -- 45 or $ff gives $ff
+OR 19 21 -- 0 or 45 gives 45
+
+ORI 19 0 -- test or with 0
+ORI 19 255 -- test or with $ff
+ORI 19 45 -- test or with itself
+ORI 19 100 -- arbitrary case
+
+BCLR 0 0 -- clear carry for first tests
+ROR 23 0 -- ROR 0 keeps CF clear
+ROR 22 0 -- ROR $ff will set CF
+ROR 23 0 -- ROR 0 with CF set, clears CF
+ROR 24 0 -- arbitrary case, reg 24 has 180
+BSET 0 0 -- set carry to test arbitrary again
+ROR 24 0
+
+BCLR 0 0 -- clear carry for now
+SBC 25 23 -- $ff - 0
+BSET 0 0
+SBC 25 23 -- $ff - 0 - 1
+BSET 0 0
+SBC 23 23 -- 0 - 0 - 1
+
+BCLR 0 0 -- clear carry for sbci tests
+SBCI 25 0 -- $fe - 0
+BSET 0 0
+SBCI 25 0 -- $fe - 0 - 1
+EOR 23 23 -- clear reg 23
+BSET 0 0 -- set carry
+SBCI 23 0 -- 0 - 0 - 1
+SBCI 24 100 -- arbitrary case
+
+EOR 0 0 -- clear registers 0 1 and 2 for SBIW, which needs to be reg 0 - 15
+EOR 1 1
+EOR 2 2
+ADIW 2 123 -- arbitrary value
+SBIW 0 0 -- 0 - 0
+SBIW 0 1 -- 0 - 1, sets reg 1 to $ff
+SBIW 1 1 -- arbitrary case
+
+
+SUB 26 26 -- 0 - 0
+SUB 27 28 -- 200 - 255 tests wraparound
+SUB 28 26 -- 255 - 0 tests minus nothing
+SUB 28 28 -- 255 - 255 tests minus itself
+
+SUBI 29 0 -- 0 - 0
+SUBI 29 1 -- 0 - 1
+SUBI 30 40 -- 44 - 50 arbitrary case without wraparound
+SUBI 4 12 -- 4 - 12 arbitrary case with wraparound
+SUBI 31 128 -- $ff - 128 arbitrary subtract from all 1's
+
+EOR 29 29
+SWAP 29 0 -- should be 0
+DEC 29 0
+SWAP 29 0 -- should be $ff
+SWAP 31 0 -- arbitrary

@@ -1,1 +1,7 @@
+docs/*~
+Sandbox/*
 Notes/*
+AVR/*.o
+AVR/*.cf
+AVR/*.ucf
+AVR/*.lst

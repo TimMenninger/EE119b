@@ -65,7 +65,7 @@ use ieee.numeric_std.all;
 --          Tells ALU to invert the operand
 --      ENInvRes : std_logic
 --          Tells ALU to invert the result
---      ENReg01 : std_logic
+--      ENMul : std_logic
 --          Active low enable signal that tells register to write specifically to
 --          registers 0 and 1
 --      ENSwap : std_logic
@@ -100,10 +100,11 @@ entity ControlUnit is
         instruction : in  std_logic_vector(15 downto 0);-- instruction
 
         BLD         : out std_logic;                    -- '1' when BLD
+        BST         : out std_logic;                    -- '1' when BST
 
         sel         : out std_logic_vector(2 downto 0); -- selects flag index
         flagMask    : out std_logic_vector(7 downto 0); -- status bits affected
-        byte        : out std_logic;                    -- byte index of result
+        clkIdx      : out natural range 0 to 3;         -- clock counter
         ENRes       : out std_logic;                    -- set SREG to R
 
         immed       : out std_logic_vector(7 downto 0); -- immediate value
@@ -115,7 +116,7 @@ entity ControlUnit is
 
         regSelA     : out std_logic_vector(4 downto 0); -- register A select
         regSelB     : out std_logic_vector(4 downto 0); -- register B select
-        ENReg01     : out std_logic;                    -- write to registers 0 and 1
+        ENMul       : out std_logic;                    -- write to registers 0 and 1
         ENSwap      : out std_logic;                    -- SWAP instruction
         ENRegA      : out std_logic;                    -- enable register A
         ENRegB      : out std_logic;                    -- enable register B
@@ -130,8 +131,9 @@ end ControlUnit;
 -- Decodes the instruction and sends control signals
 --
 architecture decoder of ControlUnit is
-    -- Register the byte output for internal use
-    signal byteReg : std_logic;
+
+    -- Clock counter for multi-clock instructions
+    signal clkCntr : natural range 0 to 3 := 0;
 
     -- All possible opcodes
     subtype instruction_t is std_logic_vector(15 downto 0);
@@ -245,656 +247,690 @@ architecture decoder of ControlUnit is
     constant OpNOP    :  instruction_t := "0000000000000000";   -- NOP
     constant OpSLP    :  instruction_t := "10010101100-1000";   -- SLEEP
     constant OpWDR    :  instruction_t := "10010101101-1000";   -- WDR
+
 begin
 
-    decode: process (clk, instruction) is
+    decode: process (clk) is
     begin
 
-        ---------------------------------------------------------------------------------
-        --
-        -- General control signal default values
-        --
-        ---------------------------------------------------------------------------------
-        -- The instruction is always immediately after a clock.  So we can obviously
-        -- call the first byte the start of the instruction, but know that we have
-        -- almost an entire clock to compute.  By the time the  next clock comes, we
-        -- should be working on the next byte, unless it is a one-byte instruction
-        -- in which case the value will be ignored altogether.
-        byte <= byteReg;
-
-        BLD      <= '0';            -- Not currently in BLD instruction
-        sel      <= "000";          -- Most common value
-        flagMask <= "11111111";     -- Change no flags by default
-        ENRes    <= '1';            -- Rare that ALU sets SREG
-
-        immed    <= "00000001";     -- Arbitrary, for INC instructions
-        ENALU    <= "00";           -- Arbitrary
-        ENImmed  <= '1';            -- Usually not using immediate value
-        ENCarry  <= '1';            -- Arbitrary
-        ENInvOp  <= '1';            -- Usually not inverting ALU operands
-        ENInvRes <= '1';            -- Usually not inverting ALU outputs
-
-        regSelA  <= "00000";        -- Arbitrary
-        regSelB  <= "00000";        -- Arbitrary
-        ENRegA   <= '1';            -- By default, don't propagate data to output
-        ENRegB   <= '1';            -- By default, don't propagate data to output
-        ENReg01  <= '1';            -- Only MUL enables this
-        ENSwap   <= '1';            -- Only SWAP enables this
-        ENRegRd  <= '1';            -- Don't access registers by default
-        ENRegWr  <= '1';            -- Don't access registers by default
-
-        ---------------------------------------------------------------------------------
-        --
-        -- ALU instruction decoding
-        --
-        ---------------------------------------------------------------------------------
-
-        -- Check each individual opcode and update outputs accordingly.  Note each
-        -- is unique, so we never have conflicting results and can do if's.  We only
-        -- explicilty set values that differ from the default
-        if (std_match(instruction, OpADC))   then
-            byteReg <= '0';
-
-            -- Set values used by ALU
-            ENCarry  <= '0';            -- Arbitrary
-
-            -- Set values used by registers
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
-
-        if (std_match(instruction, OpADD))   then
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
-
-        if (std_match(instruction, OpADIW))  then
-            -- We will do two adds.  On the low byte, we add the immediate byte without
-            -- carry.  We store the carry bit, and on the high byte, we add immediate
-            -- again (now changed to 0) with carry to propagate that bit to the top
-            -- bit if  necessary.
-
-            -- Values used by ALU
-            ENImmed  <= '0';            -- Usually not using immediate value
-
-            -- No carry on first clock, carry on second
-            ENCarry  <= not byteReg;
-
-            -- Immediate is from source on first clock.  Second clock is just to
-            -- propagate carry, but the high byte is 0
-            case byteReg is
-                when '0' =>
-                    immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
-                when others => immed <= "00000000";
-            end case;
-
-            -- Writing low byte (first) to regSelA and second byte to regSelA + 1
-            -- Rd in bits 5-4, K in bits 7-6, 3-0
-            regSelA <= "000" & instruction(5 downto 4);
-            regSelA <= std_logic_vector(to_unsigned(
-                conv_integer(instruction(5 downto 4)) + 1, regSelA'length
-            ));
-            ENRegA <= byteReg;
-            ENRegB <= not byteReg;
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= byteReg;
-            ENRegWr <= '0';
-
-            -- Affects C Z N V S flags
-            flagMask <= "11100000";
-        end if;
-
-        if (std_match(instruction, OpAND))   then
-            -- Values used by ALU
-            ENALU    <= "10";           -- Use AND
-
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
-
-        if (std_match(instruction, OpANDI))  then
-            -- Values used by ALU
-            ENALU    <= "10";           -- Use AND
-
-            -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
-            ENRegA <= '0';
-
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
-
-        if (std_match(instruction, OpASR))   then
-            -- Values used by status
-            sel <= "001";
-
-            -- Values used by ALU
-            ENALU    <= "01";           -- Use shifter
-
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects C Z N V S flags
-            flagMask <= "11100000";
-        end if;
-
-        if (std_match(instruction, OpBCLR))  then
-            -- We will set mask to set only desired bit, and trick ALU into returning
-            -- all 0's by making it think it is ANDI with "00000000".  Status will
-            -- then clear the empty bit in the mask
-            -- Values used by status
-            ENRes <= '0';               -- ALU setting SREG
-            flagMask(conv_integer(instruction(6 downto 4))) <= '0';
-
-            -- Values used by ALU
-            ENALU    <= "10";           -- ANDing
-            ENImmed  <= '0';            -- Using immediate value (default 0)
-
-            -- Flags handled by status enabled
-        end if;
-
-        if (std_match(instruction, OpBLD))   then
-            -- Values used by ALU
-            BLD <= '1';
-            sel <= instruction(2 downto 0);
-
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-
-            -- Affects no flags
-        end if;
-
-        if (std_match(instruction, OpBSET))  then
-            -- Trick ALU into sending all 1's to status, from which mask will take
-            -- the one we care about
-            -- Values used by status
-            ENRes <= '0';               -- Setting bit
-            flagMask(conv_integer(instruction(6 downto 4))) <= '0';
-
-            -- Values used by ALU
-            immed    <= "11111111";     -- OR with operand to get 1's
-            ENALU    <= "10";           -- Want to AND
-            ENImmed  <= '0';            -- Use immediate
-            ENInvOp  <= '0';            -- Invert inputs to compute !(!a AND !b)
-            ENInvRes <= '0';            -- Invert outputs to compute !(!a AND !b)
-
-            -- Flags handled by status enabled
-        end if;
-
-        if (std_match(instruction, OpBST))   then
-            -- Select bit b
-            sel <= instruction(2 downto 0);
-
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-
-            -- Affects T flag
-            flagMask <= "10111111";
-        end if;
-
-        if (std_match(instruction, OpCOM))   then
-            -- Values used by status
-            sel <= "010";
-
-            -- Values used by ALU
-            immed    <= "11111111";     -- a XOR 1 always inverts a
-            ENALU    <= "11";           -- Use XOR
-            ENImmed  <= '0';            -- Usually not using immediate value
-
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects C Z N V S flags
-            flagMask <= "11100000";
-        end if;
-
-        if (std_match(instruction, OpCP))    then
-            -- Values used by status
-            sel <= "011";
-
-            -- Values used by ALU
-            ENInvOp  <= '0';            -- Invert to add a negative
-            ENInvRes <= '1';            -- Usually not inverting ALU outputs
-
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
-
-            -- We only read registers on this
-            ENRegRd <= '0';
-
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
-
-        if (std_match(instruction, OpCPC))   then
-            -- Values used by status
-            sel <= "011";               -- Most common value
-
-            -- Values used by ALU
-            ENCarry  <= '0';            -- Using carry flag
-            ENInvOp  <= '0';            -- Invert operand to add a negative
-
-            -- Values used by registers
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
-
-            -- We only read registers on compare
-            ENRegRd <= '0';
-
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
-
-        if (std_match(instruction, OpCPI))   then
-            -- Values used by status
-            sel <= "011";
-
-            -- Values used by ALU
-            ENImmed  <= '0';            -- Usually not using immediate value
-            ENInvOp  <= '0';            -- Usually not inverting ALU operands
-
-            -- Values used by registers
-            -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
-            ENRegA <= '0';
-
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
-
-            -- We only read on compares
-            ENRegRd <= '0';
-
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
-
-        if (std_match(instruction, OpDEC))   then
-            -- Trick machine into subtracting 1 (adding -1)
-
-            -- Values used by ALU
-            immed    <= "00000001";     -- Subracting 1
-            ENImmed  <= '0';            -- Use immediate
-            ENInvOp  <= '0';            -- Invert operand for adding negative
-
-            -- Values used by registers
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
-
-        if (std_match(instruction, OpEOR))   then
-            -- Values used by status
-            sel <= "010";               -- Most common value
-
-            -- Values used by ALU
-            ENALU    <= "11";           -- Use XOR
-
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
-
-        if (std_match(instruction, OpINC))   then
-            -- Values used by status
-            sel <= "101";               -- Most common value
-
-            -- Values used by ALU
-            immed    <= "00000001";     -- 1 for INC adder
-            ENImmed  <= '0';            -- Usually not using immediate value
-
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
-
-        if (std_match(instruction, OpLSR))   then
-            ENALU <= "01"; -- use shifter
-
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
-
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
-
-            -- Affects C Z N V S flags
-            flagMask <= "11100000";
-        end if;
-
-        if (std_match(instruction, OpMUL))   then
-            -- Values used by status
-            sel <= "000";               -- Most common value
-            ENRes <= '1';               -- Rare that ALU sets SREG
-
-            -- Values used by ALU
-            immed    <= "00000001";     -- Arbitrary, for INC instructions
+        -- Always outputing clock index
+        clkIdx <= clkCntr;
+
+        if (rising_edge(clk)) then
+
+            -----------------------------------------------------------------------------
+            --
+            -- General control signal default values
+            --
+            -----------------------------------------------------------------------------
+            BLD      <= '0';            -- Not currently in BLD instruction
+            BST      <= '0';            -- Not currently in BST instruction
+            sel      <= "000";          -- Most common value
+            flagMask <= "11111111";     -- Change no flags by default
+            ENRes    <= '1';            -- Rare that ALU sets SREG
+
+            immed    <= "00000000";     -- Arbitrary, for INC instructions
             ENALU    <= "00";           -- Arbitrary
             ENImmed  <= '1';            -- Usually not using immediate value
             ENCarry  <= '1';            -- Arbitrary
             ENInvOp  <= '1';            -- Usually not inverting ALU operands
             ENInvRes <= '1';            -- Usually not inverting ALU outputs
 
-            -- Values used by registers
             regSelA  <= "00000";        -- Arbitrary
             regSelB  <= "00000";        -- Arbitrary
             ENRegA   <= '1';            -- By default, don't propagate data to output
             ENRegB   <= '1';            -- By default, don't propagate data to output
-            ENReg01  <= '1';            -- Only MUL enables this
+            ENMul    <= '1';            -- Only MUL enables this
+            ENSwap   <= '1';            -- Only SWAP enables this
             ENRegRd  <= '1';            -- Don't access registers by default
             ENRegWr  <= '1';            -- Don't access registers by default
-            -- Enable ALU and keep status disabled
 
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+            clkCntr  <= 0;              -- Assume we are on clock 0
 
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
+            -----------------------------------------------------------------------------
+            --
+            -- ALU instruction decoding
+            --
+            -----------------------------------------------------------------------------
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '1';
+            -- Check each individual opcode and update outputs accordingly.  Note each
+            -- is unique, so we never have conflicting results and can do if's.  We only
+            -- explicilty set values that differ from the default
 
-            -- Affects C Z flags
-            flagMask <= "11111100";
-        end if;
+            -- Add with carry
+            if (std_match(instruction, OpADC))   then
+                -- Set values used by ALU
+                ENCarry  <= '0';            -- Arbitrary
 
-        if (std_match(instruction, OpNEG))   then
-            -- Values used by status
-            sel <= "110";
+                -- Set values used by registers
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-            -- Values used by ALU
-            immed    <= "11111111";     -- a XOR 1 inverts a
-            ENALU    <= "11";           -- Use XOR
-            ENImmed  <= '0';            -- Use immediate
-            ENInvRes <= '0';            -- Adds one to output of XOR
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
 
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+            -- Add without carry
+            if (std_match(instruction, OpADD))   then
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
 
-        if (std_match(instruction, OpOR))    then
-            -- Values used by ALU
-            ENALU    <= "10";           -- Use AND for !(!a AND !b)
-            ENInvOp  <= '0';            -- Inverting both inputs and outputs
-            ENInvRes <= '0';            -- Inverting both inputs and outputs
+            -- Add immediate to word
+            if (std_match(instruction, OpADIW))  then
+                -- We will do two adds.  On the low byte, we add the immediate byte
+                -- without carry.  We store the carry bit, and on the high byte, we add
+                -- immediate again (now changed to 0) with carry to propagate that bit to
+                -- the top bit if necessary.
 
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+                -- This is only two clocks, so we always set counter to 1 because either
+                -- we want to switch to 1 or it no longer matters
+                clkCntr <= 1;
 
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
+                -- Values used by ALU
+                ENImmed  <= '0';            -- Usually not using immediate value
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- Writing low byte (first) to regSelA and second byte to regSelA + 1
+                -- Rd in bits 5-4, K in bits 7-6, 3-0
+                case clkCntr is
+                    when 0 =>
+                        -- On first clock:
+                        --      immed: Add value from instruction
+                        --      regSelA: From instruction
+                        immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
+                        regSelA <= "000" & instruction(5 downto 4);
+                    when others =>
+                        -- On second clock:
+                        --      ENCarry: Use carry from low byte add
+                        --      immed: Add 0 with carry to propagate add to high byte
+                        --      regSelA: One greater than from instruction
+                        ENCarry <= '0';
+                        immed <= "00000000";
+                        regSelA <= std_logic_vector(to_unsigned(
+                            conv_integer(instruction(5 downto 4)) + 1, regSelA'length
+                        ));
+                end case;
 
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
+                -- Always reading something from register A
+                ENRegA <= '0';
 
-        if (std_match(instruction, OpORI))   then
-            -- Values used by ALU
-            ENALU    <= "10";           -- a OR b = !(!a AND !b)
-            ENImmed  <= '0';            -- Instruction uses immediate
-            ENInvOp  <= '0';            -- Usually not inverting ALU operands
-            ENInvRes <= '0';            -- Usually not inverting ALU outputs
+                -- We both read from and write to registers in this instruction, and on
+                -- both clocks
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-            -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
-            ENRegA <= '0';
+                -- Affects C Z N V S flags
+                flagMask <= "11100000";
+            end if;
 
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            -- Bitwise AND
+            if (std_match(instruction, OpAND))   then
+                -- Values used by ALU
+                ENALU    <= "10";           -- Use AND
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
 
-            -- Affects Z N V S flags
-            flagMask <= "11100001";
-        end if;
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-        if (std_match(instruction, OpROR))   then
-            -- Values used by status
-            sel <= "001";
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
 
-            -- Values used by ALU
-            ENALU    <= "01";           -- Shifter
-            ENCarry  <= '0';            -- Rotating through carry
+            -- Bitwise AND with immediate
+            if (std_match(instruction, OpANDI))  then
+                -- Values used by ALU
+                ENALU    <= "10";           -- Use AND
 
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+                -- Rd in bits 7-4, K in bits 11-8, 3-0
+                regSelA <= "0" & instruction(7 downto 4);
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- Using immediate value, want to enable it
+                ENImmed <= '0';
+                immed <= instruction(11 downto 8) & instruction(3 downto 0);
 
-            -- Affects C Z N V S flags
-            flagMask <= "11100000";
-        end if;
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-        if (std_match(instruction, OpSBC))   then
-            -- Values used by status
-            sel <= "011";
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
 
-            -- Values used by ALU
-            ENCarry  <= '0';            -- Subtract with carry
-            ENInvOp  <= '0';            -- Invert one input to add a negative
+            -- Arithmetic shift right
+            if (std_match(instruction, OpASR))   then
+                -- Values used by status
+                sel <= "001";
 
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+                -- Values used by ALU
+                ENALU    <= "01";           -- Use shifter
+                ENInvRes <= '0';            -- Tells ALU this is ASR not LSR
 
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
+                -- Affects C Z N V S flags
+                flagMask <= "11100000";
+            end if;
 
-        if (std_match(instruction, OpSBCI))  then
-            -- Values used by status
-            sel <= "011";
-            ENRes <= '1';               -- Rare that ALU sets SREG
+            -- Clear status bit
+            if (std_match(instruction, OpBCLR))  then
+                -- We will set mask to set only desired bit, and trick ALU into returning
+                -- all 0's by making it think it is ANDI with "00000000".  Status will
+                -- then clear the empty bit in the mask
+                -- Values used by status
+                ENRes <= '0';               -- ALU setting SREG
 
-            -- Values used by ALU
-            ENImmed  <= '0';            -- Subtract immediate
-            ENCarry  <= '0';            -- Subtract with carry
-            ENInvOp  <= '0';            -- Negate operand to add a negative
+                -- Values used by ALU
+                ENALU    <= "10";           -- ANDing
+                ENImmed  <= '0';            -- Using immediate value (default 0) to AND
+                                            -- with whatever arbitrary value appears on
+                                            -- opA which will result in 0 sent to status.
+                                            -- Status then sees this, masks out
+                                            -- everything except that one bit which is 0
 
-            -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
-            ENRegA <= '0';
+                -- Flags handled by status enabled
+                flagMask(conv_integer(instruction(6 downto 4))) <= '0';
+            end if;
 
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            -- Load T into register bit
+            if (std_match(instruction, OpBLD))   then
+                -- Values used by registers
+                BLD <= '1';
+                sel <= instruction(2 downto 0);
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
 
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
+                -- Affects no flags
+            end if;
 
-        if (std_match(instruction, OpSBIW))  then
-            -- Like ADIW, we use the second clock to subtract 0 with carry to propagate
-            -- the carry bit through the high byte
-            -- Values used by status
-            sel <= "011";               -- Most common value
+            -- Set bit in status
+            if (std_match(instruction, OpBSET))  then
+                -- Trick ALU into sending all 1's to status, from which mask will take
+                -- the one we care about
+                -- Values used by status
+                ENRes <= '0';               -- Setting bit
 
-            -- Values used by ALU
-            ENImmed  <= '0';            -- Using immediate
-            ENCarry  <= not byteReg;    -- Only carry on second byte (byte = '1')
-            ENInvOp  <= '0';            -- Adding negative
+                -- Values used by ALU
+                ENImmed  <= '0';            -- OR this immediate with opA to get all 0's,
+                                            -- which will be inverted to be all 1's
+                                            -- instead, then the status entity will then
+                                            -- extract a bit based on the flag mask
+                                            -- Note: immed default value is "00000000"
+                ENALU    <= "10";           -- Want to AND
+                ENInvRes <= '0';            -- Invert output 0's to output 1's
 
-            -- Rd in bits 5-4, K in bits 7-6, 3-0
-            regSelA <= "000" & instruction(5 downto 4);
-            regSelA <= std_logic_vector(to_unsigned(
-                conv_integer(instruction(5 downto 4)) + 1, regSelA'length
-            ));
-            ENRegA <= byteReg;
-            ENRegB <= not byteReg;
+                -- Flags handled by status enabled
+                flagMask(conv_integer(instruction(6 downto 4))) <= '0';
+            end if;
 
-            case byteReg is
-                when '0' =>
-                    immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
-                when others => immed <= "00000000";
-            end case;
+            -- Store bit from register in T
+            if (std_match(instruction, OpBST))   then
+                -- Indicate BST instruction
+                BST <= '1';
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= byteReg;
-            ENRegWr <= '0';
+                -- Load into sel the bit index
+                sel <= instruction(2 downto 0);
 
-            -- Affects C Z N V S flags
-            flagMask <= "11100000";
-        end if;
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
 
-        if (std_match(instruction, OpSUB))   then
-            -- Values used by status
-            sel <= "011";
+                -- Explicitly sets T flag in status
+            end if;
 
-            -- Values used by ALU
-            ENInvOp  <= '0';            -- Negate operand to add a negative
+            -- Complement/invert
+            if (std_match(instruction, OpCOM))   then
+                -- Values used by status
+                sel <= "010";
 
-            -- Rd in bits 8-4, Rr in bits 9, 3-0
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+                -- Values used by ALU
+                immed    <= "11111111";     -- a XOR 1 always inverts a
+                ENALU    <= "11";           -- Use XOR
+                ENImmed  <= '0';            -- Usually not using immediate value
 
-            regSelB <= instruction(9) & instruction(3 downto 0);
-            ENRegB <= '0';
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
 
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
+                -- Affects C Z N V S flags
+                flagMask <= "11100000";
+            end if;
 
-        if (std_match(instruction, OpSUBI))  then
-            -- Values used by status
-            sel <= "011";
+            -- Compare
+            if (std_match(instruction, OpCP))    then
+                -- Values used by status
+                sel <= "011";
 
-            -- Values used by ALU
-            ENImmed  <= '0';            -- Using immediate
-            ENInvOp  <= '0';            -- Negate operand to add a negative
+                -- Values used by ALU
+                ENInvOp  <= '0';            -- Invert to add a negative
+                ENInvRes <= '0';            -- Add one to output to finish two's comp
 
-            -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
-            ENRegA <= '0';
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
 
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+                -- We only read registers on this
+                ENRegA <= '0';
+                ENRegRd <= '0';
 
-            -- We both read from and write to registers in this instruction
-            ENRegRd <= '0';
-            ENRegWr <= '0';
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
 
-            -- Affects C Z N V S H flags
-            flagMask <= "11000000";
-        end if;
+            -- Compare with carry
+            if (std_match(instruction, OpCPC))   then
+                -- Values used by status
+                sel <= "011";
 
-        if (std_match(instruction, OpSWAP))  then
-            -- Tell registers to SWAP
-            ENSwap <= '0';
+                -- Values used by ALU
+                ENInvOp  <= '0';            -- Invert operand to add a negative
+                ENInvRes <= '0';            -- Invert result to finish two's comp
+                ENCarry  <= '0';            -- Using carry flag
 
-            -- Rd in bits 8-4
-            regSelA <= instruction(8 downto 4);
-            ENRegA <= '0';
+                -- Values used by registers
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
 
-            -- Affects no flags
+                -- We only read registers on compare
+                ENRegA <= '0';
+                ENRegRd <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            -- Compare with immediate
+            if (std_match(instruction, OpCPI))   then
+                -- Values used by status
+                sel <= "011";
+
+                -- Values used by ALU
+                ENImmed  <= '0';            -- Use immediate value
+                ENInvOp  <= '0';            -- Invert operand for adding negative
+                ENInvRes <= '0';            -- Add one to result to finish two's comp
+
+                -- Values used by registers
+                -- Rd in bits 7-4, K in bits 11-8, 3-0
+                regSelA <= "0" & instruction(7 downto 4);
+                immed <= instruction(11 downto 8) & instruction(3 downto 0);
+
+                -- We only read on compares
+                ENRegA <= '0';
+                ENRegRd <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            -- Decrement
+            if (std_match(instruction, OpDEC))   then
+                -- Trick machine into subtracting 1 (adding -1)
+
+                -- Values used by ALU
+                immed    <= "00000001";     -- Subracting 1
+                ENImmed  <= '0';            -- Use immediate
+                ENInvOp  <= '0';            -- Invert operand for adding negative
+                ENInvRes <= '0';            -- Add one to result to finish two's comp
+
+                -- Values used by registers
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
+
+            -- Bitwise XOR
+            if (std_match(instruction, OpEOR))   then
+                -- Values used by status
+                sel <= "010";
+
+                -- Values used by ALU
+                ENALU <= "11";              -- Use XOR
+
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
+
+            -- Increment
+            if (std_match(instruction, OpINC))   then
+                -- Values used by status
+                sel <= "101";
+
+                -- Values used by ALU
+                immed    <= "00000001";     -- 1 for INC adder
+                ENImmed  <= '0';            -- Usually not using immediate value
+
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
+
+            -- Logical shift right
+            if (std_match(instruction, OpLSR))   then
+                ENALU <= "01"; -- use shifter
+
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S flags
+                flagMask <= "11100000";
+            end if;
+
+            -- Multiply
+            if (std_match(instruction, OpMUL))   then
+                -- This is only two clocks, so we always set counter to 1 because either
+                -- we want to switch to 1 or it no longer matters
+                clkCntr <= 1;
+
+                -- Writing low byte (first) to regSelA and second byte to regSelA + 1
+                -- Rd in bits 5-4, K in bits 7-6, 3-0
+                regSelA <= "000" & instruction(5 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
+
+                -- Values used by status
+                sel <= "101";
+
+                -- Special register read/write signal for this instruction
+                ENMul <= '0';
+
+                -- Affects C Z flags
+                flagMask <= "11111100";
+            end if;
+
+            -- Negate
+            if (std_match(instruction, OpNEG))   then
+                -- Values used by status
+                sel <= "110";
+
+                -- Values used by ALU
+                immed    <= "11111111";     -- a XOR 1 inverts a
+                ENALU    <= "11";           -- Use XOR
+                ENImmed  <= '0';            -- Use immediate
+                ENInvRes <= '0';            -- Adds one to output of XOR
+
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            -- Bitwise OR
+            if (std_match(instruction, OpOR))    then
+                -- Values used by ALU
+                ENALU    <= "10";           -- Use AND for !(!a AND !b)
+                ENInvOp  <= '0';            -- Inverting both inputs and outputs
+                ENInvRes <= '0';            -- Inverting both inputs and outputs
+
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
+
+            -- Bitwise OR with immediate
+            if (std_match(instruction, OpORI))   then
+                -- Values used by ALU
+                ENALU    <= "10";           -- a OR b = !(!a AND !b)
+                ENInvOp  <= '0';            -- Usually not inverting ALU operands
+                ENInvRes <= '0';            -- Usually not inverting ALU outputs
+
+                -- Rd in bits 7-4, K in bits 11-8, 3-0
+                regSelA <= "0" & instruction(7 downto 4);
+                immed <= instruction(11 downto 8) & instruction(3 downto 0);
+                ENImmed  <= '0';            -- Instruction uses immediate
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects Z N V S flags
+                flagMask <= "11100001";
+            end if;
+
+            -- Rotate right through carry
+            if (std_match(instruction, OpROR))   then
+                -- Values used by status
+                sel <= "001";
+
+                -- Values used by ALU
+                ENALU    <= "01";           -- Shifter
+                ENCarry  <= '0';            -- Rotating through carry
+
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S flags
+                flagMask <= "11100000";
+            end if;
+
+            -- Subtract with carry
+            if (std_match(instruction, OpSBC))   then
+                -- Values used by status
+                sel <= "011";
+
+                -- Values used by ALU
+                ENInvOp  <= '0';            -- Invert operand to add a negative
+                ENInvRes <= '0';            -- Invert result to finish two's comp
+                ENCarry  <= '0';            -- Using carry flag
+
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            -- Subtract immediate with carry
+            if (std_match(instruction, OpSBCI))  then
+                -- Values used by status
+                sel <= "011";
+
+                -- Values used by ALU
+                ENInvOp  <= '0';            -- Invert operand to add a negative
+                ENInvRes <= '0';            -- Invert result to finish two's comp
+                ENCarry  <= '0';            -- Using carry flag
+
+                -- Rd in bits 7-4, K in bits 11-8, 3-0
+                regSelA <= "0" & instruction(7 downto 4);
+                immed <= instruction(11 downto 8) & instruction(3 downto 0);
+                ENImmed  <= '0';            -- Subtract immediate
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            -- Subtract immediate from word
+            if (std_match(instruction, OpSBIW))  then
+                -- Like ADIW, we use the second clock to subtract 0 with carry to
+                -- propagate the carry bit through the high byte
+                -- Values used by status
+
+                -- This is only two clocks, so we always set counter to 1 because either
+                -- we want to switch to 1 or it no longer matters
+                clkCntr <= 1;
+
+                -- Values used by ALU
+                ENImmed  <= '0';            -- Usually not using immediate value
+
+                -- Writing low byte (first) to regSelA and second byte to regSelA + 1
+                -- Rd in bits 5-4, K in bits 7-6, 3-0
+                case clkCntr is
+                    when 0 =>
+                        -- On first clock:
+                        --      immed: Add value from instruction
+                        --      regSelA: From instruction
+                        --      ENInvOp: We add two's complement on low byte
+                        --      ENInvRes: Finish two's complement
+                        immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
+                        regSelA <= "000" & instruction(5 downto 4);
+                        ENInvOp <= '0';
+                        ENInvRes <= '0';
+                    when others =>
+                        -- On second clock:
+                        --      ENCarry: Use carry from low byte add
+                        --      immed: Add 0 with carry to propagate add to high byte
+                        --      regSelA: One greater than from instruction
+                        ENCarry <= '0';
+                        immed <= "00000000";
+                        regSelA <= std_logic_vector(to_unsigned(
+                            conv_integer(instruction(5 downto 4)) + 1, regSelA'length
+                        ));
+                end case;
+
+                sel <= "011";
+
+                -- Always reading from register A
+                ENRegA <= '0';
+
+                -- We both read from and write to registers on both clocks
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S flags
+                flagMask <= "11100000";
+            end if;
+
+            -- Subtract without carry
+            if (std_match(instruction, OpSUB))   then
+                -- Values used by status
+                sel <= "011";
+
+                -- Values used by ALU
+                ENInvOp  <= '0';            -- Invert to add a negative
+                ENInvRes <= '0';            -- Add one to output to finish two's comp
+
+                -- Rd in bits 8-4, Rr in bits 9, 3-0
+                regSelA <= instruction(8 downto 4);
+                regSelB <= instruction(9) & instruction(3 downto 0);
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            -- Subtract immediate without carry
+            if (std_match(instruction, OpSUBI))  then
+                -- Values used by status
+                sel <= "011";
+
+                -- Values used by ALU
+                ENInvOp  <= '0';            -- Invert to add a negative
+                ENInvRes <= '0';            -- Add one to output to finish two's comp
+
+                -- Rd in bits 7-4, K in bits 11-8, 3-0
+                regSelA <= "0" & instruction(7 downto 4);
+                immed <= instruction(11 downto 8) & instruction(3 downto 0);
+                ENImmed  <= '0';            -- Using immediate
+
+                -- We both read from and write to registers in this instruction
+                ENRegA <= '0';
+                ENRegRd <= '0';
+                ENRegWr <= '0';
+
+                -- Affects C Z N V S H flags
+                flagMask <= "11000000";
+            end if;
+
+            if (std_match(instruction, OpSWAP))  then
+                -- Tell registers to SWAP
+                ENSwap <= '0';
+
+                -- Rd in bits 8-4
+                regSelA <= instruction(8 downto 4);
+
+                -- Affects no flags
+            end if;
+
         end if;
 
     end process decode;

@@ -37,6 +37,8 @@ use ieee.std_logic_unsigned.all;
 --          Bit 7 of operand B of ALU operation
 --      Rdb : std_logic
 --          Bit b of register being used to set T flag
+--      BST : std_logic
+--          Set to 1 when we are executing BST instruction
 --      sel : std_logic_vector(2 downto 0)
 --          Index to the array of flag computations used to propagate flag to
 --          output
@@ -72,9 +74,10 @@ entity Status is
         Rr7         : in  std_logic;                            -- bit 7 of operand B
         Rdb         : in  std_logic;                            -- Bit to set T to
 
+        BST         : in  std_logic;                            -- 1 when BST instruction
         sel         : in  std_logic_vector(2 downto 0);         -- selects flag index
         mask        : in  std_logic_vector(7 downto 0);         -- masks unaffected flags
-        byte        : in  std_logic;                            -- byte index of result
+        clkIdx      : in  natural range 0 to 3;                 -- clocks since instrctn
         ENRes       : in  std_logic;                            -- set SREG to R
 
         TF          : out std_logic;                            -- always sent to regs
@@ -168,9 +171,9 @@ begin
     -- Zero flag
     ZF <=
         '1' when
-            (R = "00000000" and byte = '0')
+            (R = "00000000" and clkIdx = 0)
         else '1' when
-            (R = "00000000" and byte = '1' and status(Z) = '1')
+            (R = "00000000" and clkIdx = 1 and status(Z) = '1')
         else '0';
 
     -- Carry flag
@@ -202,39 +205,46 @@ begin
         if (rising_edge(clk)) then
             -- Set each flag to either its previous value or the new indexed value, based
             -- on the flag mask
+            case mask(T) is
+                when '0' => status(T) <= Rdb;
+                when others => status(T) <= status(T);
+            end case;
+
+            case mask(H) is
+                when '0' => status(H) <= HF(conv_integer(sel));
+                when others => status(H) <= status(H);
+            end case;
+
+            case mask(S) is
+                when '0' => status(S) <= (NF xor VF(conv_integer(sel)));
+                when others => status(S) <= status(S);
+            end case;
+
+            case mask(V) is
+                when '0' => status(V) <= VF(conv_integer(sel));
+                when others => status(V) <= status(V);
+            end case;
+
+            case mask(N) is
+                when '0' => status(N) <= NF;
+                when others => status(N) <= status(N);
+            end case;
+
+            case mask(C) is
+                when '0' => status(C) <= CF(conv_integer(sel));
+                when others => status(C) <= status(C);
+            end case;
+
+            -- In some cases we set the status based on result
             if (ENRes = '0') then
                 status <= (mask and status) or (not mask and R);
-            else
-                case mask(T) is
-                    when '0' => status(T) <= Rdb;
-                    when others => status(T) <= status(T);
-                end case;
-
-                case mask(H) is
-                    when '0' => status(H) <= HF(conv_integer(sel));
-                    when others => status(H) <= status(H);
-                end case;
-
-                case mask(S) is
-                    when '0' => status(S) <= (NF xor VF(conv_integer(sel)));
-                    when others => status(S) <= status(S);
-                end case;
-
-                case mask(V) is
-                    when '0' => status(V) <= VF(conv_integer(sel));
-                    when others => status(V) <= status(V);
-                end case;
-
-                case mask(N) is
-                    when '0' => status(N) <= NF;
-                    when others => status(N) <= status(N);
-                end case;
-
-                case mask(C) is
-                    when '0' => status(C) <= CF(conv_integer(sel));
-                    when others => status(C) <= status(C);
-                end case;
             end if;
+
+            -- Extract one bit from result if on BST instruction
+            if (BST = '1') then
+                status(T) <= R(conv_integer(sel));
+            end if;
+
         end if;
 
     end process setFlags;

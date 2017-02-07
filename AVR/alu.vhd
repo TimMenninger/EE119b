@@ -78,6 +78,9 @@ entity ALU is
         ENInvOp     : in  std_logic;                    -- negate operand
         ENInvRes    : in  std_logic;                    -- negate result
 
+        ENMul       : in  std_logic;                    -- active (low) when MUL
+        clkIdx      : in  natural range 0 to 3;         -- num clks since instrctn
+
         Rd0         : out std_logic;                    -- bit 0 of operand A
         Rd3         : out std_logic;                    -- bit 3 of operand A
         Rr3         : out std_logic;                    -- bit 3 of operand B
@@ -205,64 +208,141 @@ architecture compute of ALU is
         );
     end component;
 
+    -------------------------------------------------------------------------------------
+    -- General correction signals
+    -------------------------------------------------------------------------------------
+    -- Product of two operands
+    signal product      : std_logic_vector(15 downto 0);
+    signal productOut   : std_logic_vector(7 downto 0); -- depends on clock of instrctn
+    -- Signals used in result adder
+    signal summand      : std_logic; -- Cin for result adder (bottom)
+    signal addToThis    : std_logic_vector(7 downto 0); -- See below for description
+    -- Corrected AND output, relevant if ANDing and inverting
+    signal aANDbCorrect : std_logic_vector(7 downto 0);
+    -- We use an intermediate b, which contains either opB or immed
+    signal bInter       : std_logic_vector(7 downto 0);
+    -- Result of ALU for anything that isn't multiplication
+    signal ALURes       : std_logic_vector(7 downto 0);
+
 begin
+
+    -------------------------------------------------------------------------------------
+    --
+    -- SET INPUTS
+    --
+    -- Use control signals to set inputs to set the inputs to the components, from which
+    -- we will choose one as the result we use
+    --
+    -- Adder : Full adder on two inputs
+    -- Shifter : Shifts one input.  Argue value to shift in and returns shifted out val
+    -- FBlock : Returns AND and XOR of two inputs
+    --
 
     -- Define components whose outputs will be muxed depending on control signals
     Adder   : NBitAdder   port map (Cin, opA, b, Cout, sum);
     Shifter : NBitShifter port map (shiftIn, opA, shifted, shiftOut);
     FBlock  : NBitFBlock  port map (a, b, aANDb, aXORb);
 
-    -- Process to set inputs to components
-    setInputs : process (Cin, SREG, ENCarry, ENImmed, ENInvOp, immed, opA, opB) is
-        variable bitCat : std_logic_vector(1 downto 0);
-    begin
-        -- Set inputs to adder (b also used in FBlock)
-        case ENCarry is
-            when '0' => Cin <= SREG(C);
-            when others => Cin <= '0';
-        end case;
+    -------------------------------------------------------------------------------------
+    --
+    -- ADDER SPECIFIC SIGNALS
+    --
+    -- Cin : Cin to n-bit full adder
+    --
+    -------------------------------------------------------------------------------------
 
-        bitCat := ENImmed & ENInvOp;
-        case bitCat is
-            when "00" => b <= not immed;
-            when "01" => b <= immed;
-            when "10" => b <= not opB;
-            when others => b <= opB;
-        end case;
+    -- Set Cin to adder based on carry flag enabler
+    Cin <= SREG(C) when ENCarry = '0' else '0';
 
-        -- Set inputs to shifter
-        case ENCarry is
-            when '0' => shiftIn <= SREG(C);
-            when others => shiftIn <= not ENInvOp;
-        end case;
+    -------------------------------------------------------------------------------------
+    --
+    -- SHARED SIGNALS by adder and FBlock
+    --
+    -- bInter : Contains b input, either register or immediate
+    -- b : The b input, either bInter or bInter inverted, based on control signals
+    --
+    -------------------------------------------------------------------------------------
 
-        -- Set inputs to FBlock (b computed with adder)
-        case ENInvOp is
-            when '0' => a <= not opA;
-            when others => a <= opA;
-        end case;
+    -- Set intermediate b to either operand or immediate based on control signals
+    bInter <= immed when ENImmed = '0' else opB;
 
-    end process setInputs;
+    -- The b input will reflect bInter (which is immediate or operand b).  Here, we
+    -- invert based on control signal
+    b <= not bInter when ENInvOp = '0' else bInter;
 
-    -- Process to choose which output to report
-    chooseOutput : process (sum, shiftOut, aANDb, aXORb) is
-        variable bitCat : std_logic_vector(2 downto 0);
-    begin
+    -------------------------------------------------------------------------------------
+    --
+    -- FBLOCK SPECIFIC SIGNALS
+    --
+    -- a : FBlock is the only time we don't just propagate a
+    -- aANDbCorrect : Corrects the aANDb output based on whether we want it inverted
+    --
+    -------------------------------------------------------------------------------------
 
-        -- Concatenate bits so we can make one case statement
-        bitCat := ENALU & ENInvRes;
-        case bitCat is
-            when "000" => result <=
-                std_logic_vector(to_unsigned(conv_integer(sum) + 1, result'length));
-            when "001" => result <= sum;
-            when "01-" => result <= shifted;
-            when "100" => result <= not aANDb;
-            when "101" => result <= aANDb;
-            when "110" => result <=
-                std_logic_vector(to_unsigned(conv_integer(aXORb) + 1, result'length));
-            when others => result <= aXORb;
-        end case;
+    -- We want to invert a based on control signal.  The reason this is FBlock specific
+    -- is because there are times when we invert b and not a, but that never happens
+    -- for FBlock
+    a <= not opA when ENInvOp = '0' else opA;
 
-    end process chooseOutput;
+    -- Set the correct aANDb value based on whether we are inverting result
+    aANDbCorrect <= not aANDb when ENInvRes = '0' else aANDb;
+
+    -------------------------------------------------------------------------------------
+    --
+    -- SHIFTER SPECIFIC SIGNALS
+    --
+    -- ShiftIn : What is shifted into the top bit
+    --
+    -------------------------------------------------------------------------------------
+
+    -- Set what is shifted in.  Sometimes it is 0, sometimes it is the sign bit and
+    -- sometimes it is the carry flag
+    shiftIn <= '0' when ENCarry = '0' else opA(7) and not ENInvRes;
+
+    -------------------------------------------------------------------------------------
+    --
+    -- MULTIPLIER SIGNALS
+    --
+    -- Product : The product of operands
+    --
+    -------------------------------------------------------------------------------------
+
+    -- Get product and output high or low byte depending on clock index.
+    product <= opA * opB;
+    productOut <= product(15 downto 8) when clkIdx = 1 else product(7 downto 0);
+
+    -------------------------------------------------------------------------------------
+    --
+    -- CHOOSE OUTPUT
+    --
+    -- Use control signals to choose which output we want to ultimately take out of the
+    -- components' results from above.
+    --
+    -- FinalResult : Some results require 1 be added to it.  For example, anything where
+    --               we are simulating subtraction by adding the negative of the second
+    --               argument
+
+    -- Choose what operation output we are going to use.  We load it into addToThis
+    -- in case we also want to add 1 to it.
+    with ENALU select addToThis <=
+        sum          when "00",
+        shifted      when "01",
+        aANDbCorrect when "10",
+        aXORb        when others;
+
+    -- Select what we are adding to the result before clocking it
+    with ENALU select summand <=
+        (not SREG(C) or ENCarry) and not ENInvRes when "00",
+        not ENInvRes                              when "11",
+        '0'                                       when others;
+
+    -- Here, we are either adding 0 or 1.  We will thus put it into Cin and add 0.  This
+    -- way we can more easily use std_logic as the summand without converting it to
+    -- an 8-bit std_logic_vector
+    FinalResult  : NBitAdder port map (summand, addToThis, "00000000", open, ALURes);
+
+    -- Finally, choose the output, either the result from the F, T and Adder, or from
+    -- the product based on the multiply control signal
+    result <= productOut when ENMul = '0' else ALURes;
 
 end compute;
