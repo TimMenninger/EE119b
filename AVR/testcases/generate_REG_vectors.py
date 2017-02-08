@@ -1,4 +1,3 @@
-import random
 import sys
 from generate_values import *
 
@@ -12,11 +11,10 @@ def generate(fIn, fOut):
     fIn.readline() # First line is a comment
     line = fIn.readline()
     skip = False
-    determined = False # false until we know contents of all regs
     status = ["-"] * 8
 
-    # Random register values to avoid assuming revious values
-    registers = [ random.randint(0, 255) for i in range(32) ]
+    # Invalid register values to avoid assuming previous values
+    registers = [ -1 ] * 32
 
     # Go to end of file or till END (for shortening without deleting)
     while (line != "" and "END" not in line):
@@ -28,11 +26,6 @@ def generate(fIn, fOut):
             continue
 
         vals = line.split(" ")
-
-        if (not determined and vals[0] == "DETERMINED"):
-            determined = True
-            line = fIn.readline()
-            continue
 
         inA = int(vals[1])
         regAIdx = inA
@@ -61,12 +54,12 @@ def generate(fIn, fOut):
             expA -= 256 * registers[inA+1]
 
         # Repeated code but who cares, not the intent rn
-        if ("d" in instruction and determined):
+        if ("d" in instruction and expA >= 0):
             expA = int_to_binary(expA, 8)
             expA = [ str(i) for i in expA ]
         else:
             expA = ["-"] * 8
-        if ("r" in instruction and determined):
+        if ("r" in instruction and expB >= 0):
             expB = int_to_binary(expB, 8)
             expB = [ str(i) for i in expB ]
         else:

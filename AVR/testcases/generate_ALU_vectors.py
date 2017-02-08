@@ -1,4 +1,3 @@
-import random
 import sys
 from generate_values import *
 
@@ -8,13 +7,16 @@ dontWriteRegs = [ "BCLR", "BSET", "BST", "CP", "CPC", "CPI", "MUL" ]
 # Two-clock instructions
 twoClocks = [ "ADIW", "SBIW", "MUL" ]
 
+# Instructions with no result
+noResult = [ "BCLR", "BSET", "BLD", "BST", "CP", "CPC", "CPI", "SWAP" ]
+
 def generate(fIn, fOut):
     fIn.readline() # First line is a comment
     line = fIn.readline()
     status = ["-", "-", "-", "-", "-", "-", "-", "-"]
     skip = False
     # Random register values to avoid assuming revious values
-    registers = [ random.randint(0, 255) for i in range(32) ]
+    registers = [ -1 ] * 32
 
     # Go to end of file or till END
     while (line != "" and "END" not in line):
@@ -51,7 +53,11 @@ def generate(fIn, fOut):
 
         # Undo word correction
         if (vals[0] in [ "ADIW", "SBIW" ]):
-            expA -= 256 * registers[inA+1]
+            opA -= 256 * registers[inA+1]
+
+        # Don't care if there is no result
+        if (vals[0] in noResult):
+            result = "-" * 8
 
         opA = int_to_binary(opA, 8)
         opA = [ str(i) for i in opA ]
@@ -63,25 +69,27 @@ def generate(fIn, fOut):
         vector = [ opcode, ",", opA, ",", opB, ",", result, ",", status, "\n" ]
         if (vals[0] == "ADIW" or vals[0] == "SBIW" or vals[0] == "MUL"):
             if (vals[0] == "MUL"):
-                registers[0] = binary_str_to_int(nextRegIn[8:])
+                registers[0] = binary_str_to_int(result[8:])
+                vector[6] = int_to_binary(registers[0], 8)
             else:
-                registers[regAIdx] = binary_str_to_int(nextRegIn[8:])
-            vector[6] = int_to_binary(registers[regAIdx], 8)
+                registers[regAIdx] = binary_str_to_int(result[8:])
+                vector[6] = int_to_binary(registers[regAIdx], 8)
             vector[6] = [ str(i) for i in vector[6] ]
             vector[6] = "".join(vector[6])
             vector[8] = "-" * 8
             fOut.write("".join(vector))
 
             # Next clock
-            vector[2] = int_to_binary(registers[regAIdx+1])
-            vector[2] = [ str(i) for i in vector[2] ]
-            vector[2] = "".join(vector[2])
-                if (vals[0] == "MUL"):
-                    registers[1] = binary_str_to_int(nextRegIn[8:])
-                else:
-                    registers[regAIdx+1] = binary_str_to_int(nextRegIn[8:])
-            vector[4] = "00000000"
-            vector[6] = int_to_binary(registers[regAIdx+1], 8)
+            if (vals[0] == "MUL"):
+                registers[1] = binary_str_to_int(result[:8])
+                vector[6] = int_to_binary(registers[1], 8)
+            else:
+                vector[2] = int_to_binary(registers[regAIdx+1], 8)
+                vector[2] = [ str(i) for i in vector[2] ]
+                vector[2] = "".join(vector[2])
+                registers[regAIdx+1] = binary_str_to_int(result[:8])
+                vector[6] = int_to_binary(registers[regAIdx+1], 8)
+                vector[4] = "00000000"
             vector[6] = [ str(i) for i in vector[6] ]
             vector[6] = "".join(vector[6])
             vector[8] = status

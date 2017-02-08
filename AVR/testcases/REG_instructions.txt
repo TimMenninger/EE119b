@@ -50,8 +50,6 @@ EOR 29 29
 EOR 30 30
 EOR 31 31
 
-DETERMINED -- Now know contents of every register
-
 DEC 1 0 -- Make reg 1 = 255
 ADD 0 0 -- test add.  next tests iterate on dest register so we have real values
 ADD 0 1 -- add 255 to 0
@@ -183,9 +181,10 @@ LSR 19 0 -- reg 19 contains $ff
 LSR 20 0 -- reg 20 contains 0
 LSR 21 0 -- arbitrary case, 91
 
-MUL 17 18 -- 1 and 215
-MUL 16 18 -- 0 and 215
+MUL 17 18 -- 1 and 216
+MUL 16 18 -- 0 and 216
 MUL 18 18 -- should spill into reg 1 (251 and 251)
+
 NEG 16 0 -- negative 0 is 0
 NEG 17 0 -- negative 1 gives $ff
 NEG 18 0 -- arbitrary case

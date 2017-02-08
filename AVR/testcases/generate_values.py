@@ -59,6 +59,9 @@ def int_to_binary(n, bits):
         n -= 2**power
         power += 1
 
+    while (n < -1 * 2**(bits-1)):
+        n += 2**bits
+
     if (n < 0):
         out[0] = 1
         for i in range(bits-2, -1, -1):
@@ -79,6 +82,7 @@ def compute_result(instruction, opA, opB, status):
     # Compute flags and result for each individual instruction
 
     flagMask = [1,1,1,1,1,1,1,1]
+    TF = 0
     idx = 0
 
     if (instruction == "ADC"):
@@ -98,9 +102,8 @@ def compute_result(instruction, opA, opB, status):
         flagMask = [1,1,1,0,0,0,0,1];
     if (instruction == "ASR"):
         res = int_to_binary(opA, 8)
-        temp = res[7]
         res[1:] = res[:7]
-        res[0] = temp
+        res[0] = res[1]
         idx = 1
         flagMask = [1,1,1,0,0,0,0,0];
     if (instruction == "BCLR"):
@@ -114,6 +117,7 @@ def compute_result(instruction, opA, opB, status):
         status[7 - opA] = 1
     if (instruction == "BST"):
         res = int_to_binary(0, 8)
+        TF = int_to_binary(opA, 8)[7 - opB]
         flagMask = [1,0,1,1,1,1,1,1];
     if (instruction == "COM"):
         res = int_to_binary(opA, 8)
@@ -133,6 +137,7 @@ def compute_result(instruction, opA, opB, status):
         idx = 3
         flagMask = [1,1,0,0,0,0,0,0];
     if (instruction == "DEC"):
+        idx = 5
         res = int_to_binary(opA - 1, 8)
         flagMask = [1,1,1,0,0,0,0,1];
     if (instruction == "EOR"):
@@ -149,6 +154,7 @@ def compute_result(instruction, opA, opB, status):
         res[0] = 0
         flagMask = [1,1,1,0,0,0,0,0];
     if (instruction == "MUL"):
+        idx = 5
         res = int_to_binary(opA * opB, 16)
         flagMask = [1,1,1,1,1,1,0,0];
     if (instruction == "NEG"):
@@ -200,26 +206,28 @@ def compute_result(instruction, opA, opB, status):
     CF = [0] * 7
 
     R = res
-    Rd0 = int_to_binary(opA, 16)[0]
-    Rd3 = int_to_binary(opA, 16)[3]
-    Rr3 = int_to_binary(opB, 8)[3]
-    Rd7 = int_to_binary(opA, 16)[7]
-    Rr7 = int_to_binary(opB, 8)[7]
+    Rd0 = int_to_binary(opA, 16)[15]
+    Rd3 = int_to_binary(opA, 16)[12]
+    Rr3 = int_to_binary(opB, 8)[4]
+    Rd7 = int_to_binary(opA, 16)[8]
+    if (instruction in [ "ADIW", "SBIW" ]):
+        Rd7 = int_to_binary(opA, 16)[0]
+    Rr7 = int_to_binary(opB, 8)[0]
 
-    MSB = len(R) - 1
+    MSB = 0
 
     # Half-carry flag
     HF[0] = (Rd3 == 1 and Rr3 == 1) or \
-            (Rr3 == 1 and R[3]  == 0) or \
-            (R[3] == 0 and Rd3 == 1)
+            (Rr3 == 1 and R[4]  == 0) or \
+            (R[4] == 0 and Rd3 == 1)
     HF[1] = 0
     HF[2] = 0
     HF[3] = (Rd3 == 0 and Rr3 == 1) or \
-            (Rr3 == 1 and R[3] == 1) or \
-            (R[3] == 1 and Rd3 == 0)
+            (Rr3 == 1 and R[4] == 1) or \
+            (R[4] == 1 and Rd3 == 0)
     HF[4] = 0
     HF[5] = 0
-    HF[6] = R[3] or Rd3
+    HF[6] = R[4] or Rd3
 
     # Overflow flag
     VF[0] = (Rd7 == 1 and Rr7 == 1 and R[MSB] == 0) or \
@@ -237,7 +245,7 @@ def compute_result(instruction, opA, opB, status):
     NF = R[MSB]
 
     # Zero flag
-    ZF = (R == [0, 0, 0, 0, 0, 0, 0, 0])
+    ZF = (R == [ 0 ] * len(R))
 
     # Carry flag
     CF[0] = (Rd7 == 1 and Rr7 == 1) or \
@@ -252,7 +260,7 @@ def compute_result(instruction, opA, opB, status):
     CF[5] = R[MSB]
     CF[6] = R != [0, 0, 0, 0, 0, 0, 0, 0]
 
-    newFlags = [0, 0, int(HF[idx]), int(NF ^ VF[idx]), \
+    newFlags = [0, TF, int(HF[idx]), int(NF ^ VF[idx]), \
         int(VF[idx]), int(NF), int(ZF), int(CF[idx])]
 
     for i in range(8):

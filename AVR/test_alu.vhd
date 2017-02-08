@@ -387,6 +387,7 @@ begin
         variable operandB       : std_logic_vector(7 downto 0);
         variable expResult      : std_logic_vector(7 downto 0);
         variable expStatus      : std_logic_vector(7 downto 0);
+        variable nextStatus     : std_logic_vector(7 downto 0) := "--------";
         variable delimiter      : character;
     begin
         -- Open the testcase file
@@ -400,6 +401,9 @@ begin
 
         -- Go trough every test case
         while not endfile(ALU_vectors) loop
+            -- Status checked one clock late
+            expStatus := nextStatus;
+
             -- Parse the line
             readline(ALU_vectors, currLine);
             read(currLine, instruction);
@@ -410,7 +414,7 @@ begin
             read(currLine, delimiter);
             read(currLine, expResult);
             read(currLine, delimiter);
-            read(currLine, expStatus);
+            read(currLine, nextStatus);
 
             -- Instruction comes in short after clock rising edge
             wait for 5 ns;
@@ -431,6 +435,16 @@ begin
             wait for 5 ns;
         end loop;
         file_close(ALU_vectors);
+
+        -- Check last status
+        wait for 45 ns;
+        expStatus := nextStatus;
+        assert (std_match(status, expStatus))
+            report  "incorrect ALU status output"
+            severity  ERROR;
+
+        -- Buffer for end of wave viewer
+        wait for 50 ns;
 
         -- Done simulation
         END_SIM <= TRUE;

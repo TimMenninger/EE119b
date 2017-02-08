@@ -230,6 +230,11 @@ begin
                 when others => status(N) <= status(N);
             end case;
 
+            case mask(Z) is
+                when '0' => status(Z) <= ZF;
+                when others => status(Z) <= status(Z);
+            end case;
+
             case mask(C) is
                 when '0' => status(C) <= CF(conv_integer(sel));
                 when others => status(C) <= status(C);

@@ -515,6 +515,12 @@ begin
             -- Rd in bits 8-4
             regSelA <= instruction(8 downto 4);
 
+            -- For this to work properly, the ALU has to put the contents of register
+            -- A onto its result bus.  We will AND it with 1's
+            immed <= "11111111";
+            ENImmed <= '0';
+            ENALU <= "10";
+
             -- Explicitly sets T flag in status
         end if;
 
@@ -610,6 +616,7 @@ begin
         -- Decrement
         if (std_match(instruction, OpDEC))   then
             -- Trick machine into subtracting 1 (adding -1)
+            sel <= "101";
 
             -- Values used by ALU
             immed    <= "00000001";     -- Subracting 1
@@ -873,6 +880,8 @@ begin
                     --      immed: Add 0 with carry to propagate add to high byte
                     --      regSelA: One greater than from instruction
                     ENCarry <= '0';
+                    ENInvOp <= '0';
+                    ENInvRes <= '0';
                     immed <= "00000000";
                     regSelA <= "00" & std_logic_vector(to_unsigned(
                         conv_integer(instruction(5 downto 4)) + 1, 3

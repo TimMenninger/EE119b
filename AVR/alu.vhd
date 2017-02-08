@@ -226,6 +226,13 @@ architecture compute of ALU is
 
 begin
 
+    -- These signals always go to status and don't depend on control signals
+    Rd0 <= opA(0);                    -- bit 0 of operand A
+    Rd3 <= opA(3);                    -- bit 3 of operand A
+    Rr3 <= opB(3);                    -- bit 3 of operand B
+    Rd7 <= opA(7);                    -- bit 7 of operand A
+    Rr7 <= opB(7);                    -- bit 7 of operand B
+
     -------------------------------------------------------------------------------------
     --
     -- SET INPUTS
@@ -251,8 +258,9 @@ begin
     --
     -------------------------------------------------------------------------------------
 
-    -- Set Cin to adder based on carry flag enabler
-    Cin <= SREG(C) when ENCarry = '0' else '0';
+    -- Set Cin to adder based on carry flag enabler.  When we are inverting operands
+    -- i.e. subtracting, we never use Cin
+    Cin <= SREG(C) when ENCarry = '0' and ENInvOp = '1' else '0';
 
     -------------------------------------------------------------------------------------
     --
@@ -297,7 +305,7 @@ begin
 
     -- Set what is shifted in.  Sometimes it is 0, sometimes it is the sign bit and
     -- sometimes it is the carry flag
-    shiftIn <= '0' when ENCarry = '0' else opA(7) and not ENInvRes;
+    shiftIn <= SREG(C) when ENCarry = '0' else opA(7) and not ENInvRes;
 
     -------------------------------------------------------------------------------------
     --
