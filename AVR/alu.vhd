@@ -152,11 +152,11 @@ architecture compute of ALU is
     -- Adder
     -------------------------------------------------------------------------------------
     -- Signals used in the adder component
-    signal a      : std_logic_vector(7 downto 0);
-    signal b      : std_logic_vector(7 downto 0);
-    signal Cin    : std_logic;
-    signal Cout   : std_logic;
-    signal sum    : std_logic_vector(7 downto 0);
+    signal a      : std_logic_vector(7 downto 0)    := "00000000";
+    signal b      : std_logic_vector(7 downto 0)    := "00000000";
+    signal Cin    : std_logic                       := '0';
+    signal Cout   : std_logic                       := '0';
+    signal sum    : std_logic_vector(7 downto 0)    := "00000000";
     component NBitAdder is
         generic (
             n       : natural := 8                          -- bits in adder
@@ -175,9 +175,9 @@ architecture compute of ALU is
     -- Shifter
     -------------------------------------------------------------------------------------
     -- Signals used in the shifter component
-    signal shiftIn  : std_logic;
-    signal shifted  : std_logic_vector(7 downto 0);
-    signal shiftOut : std_logic;
+    signal shiftIn  : std_logic                     := '0';
+    signal shifted  : std_logic_vector(7 downto 0)  := "00000000";
+    signal shiftOut : std_logic                     := '0';
     component NBitShifter is
         generic (
             n           : natural := 8                          -- Number of bits
@@ -194,8 +194,8 @@ architecture compute of ALU is
     -- F Blocks
     -------------------------------------------------------------------------------------
     -- Signals used in F blocks.
-    signal aANDb : std_logic_vector(7 downto 0);
-    signal aXORb : std_logic_vector(7 downto 0);
+    signal aANDb : std_logic_vector(7 downto 0)     := "00000000";
+    signal aXORb : std_logic_vector(7 downto 0)     := "00000000";
     component NBitFBlock is
         generic (
             n           : natural := 8                          -- Number of bits
@@ -212,17 +212,17 @@ architecture compute of ALU is
     -- General correction signals
     -------------------------------------------------------------------------------------
     -- Product of two operands
-    signal product      : std_logic_vector(15 downto 0);
-    signal productOut   : std_logic_vector(7 downto 0); -- depends on clock of instrctn
-    -- Signals used in result adder
-    signal summand      : std_logic; -- Cin for result adder (bottom)
-    signal addToThis    : std_logic_vector(7 downto 0); -- See below for description
+    signal product      : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal productOut   : std_logic_vector(7 downto 0)  := "00000000"; -- depends on clock
+    -- Signals used in result adder, summand is Cin
+    signal summand      : std_logic                     := '0';
+    signal addToThis    : std_logic_vector(7 downto 0)  := "00000000";
     -- Corrected AND output, relevant if ANDing and inverting
-    signal aANDbCorrect : std_logic_vector(7 downto 0);
+    signal aANDbCorrect : std_logic_vector(7 downto 0)  := "00000000";
     -- We use an intermediate b, which contains either opB or immed
-    signal bInter       : std_logic_vector(7 downto 0);
+    signal bInter       : std_logic_vector(7 downto 0)  := "00000000";
     -- Result of ALU for anything that isn't multiplication
-    signal ALURes       : std_logic_vector(7 downto 0);
+    signal ALURes       : std_logic_vector(7 downto 0)  := "00000000";
 
 begin
 

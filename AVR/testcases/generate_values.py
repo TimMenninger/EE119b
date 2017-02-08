@@ -18,7 +18,7 @@ instructions = {
     "BCLR"  :  ("100101001sss1000", 1), # SREG(s) = 0
     "BLD"   :  ("1111100ddddd0bbb", 1), # Rd(b) = T
     "BSET"  :  ("100101000sss1000", 1), # SREG(s) = 1
-    "BST"   :  ("1111101dddddXbbb", 1), # T = Rd(b)
+    "BST"   :  ("1111101ddddd0bbb", 1), # T = Rd(b)
     "COM"   :  ("1001010ddddd0000", 1), # Rd = NOT Rd
     "CP"    :  ("000101rdddddrrrr", 1), # Rd - Rr
     "CPC"   :  ("000001rdddddrrrr", 1), # Rd - Rr - C
@@ -108,7 +108,7 @@ def compute_result(instruction, opA, opB, status):
         status[7 - opA] = 0
     if (instruction == "BLD"):
         res = int_to_binary(opA, 8)
-        res[T] = status[T]
+        res[7 - opB] = int(status[T])
     if (instruction == "BSET"):
         res = int_to_binary(0, 8)
         status[7 - opA] = 1
@@ -140,7 +140,7 @@ def compute_result(instruction, opA, opB, status):
         idx = 2
         flagMask = [1,1,1,0,0,0,0,1];
     if (instruction == "INC"):
-        res = int_to_binary(opA + opB, 8)
+        res = int_to_binary(opA + 1, 8)
         idx = 5
         flagMask = [1,1,1,0,0,0,0,1];
     if (instruction == "LSR"):

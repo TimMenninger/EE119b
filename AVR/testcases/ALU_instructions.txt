@@ -64,24 +64,28 @@ ADC 2 0 -- test adc. carry is clear here
 BSET 0 0 -- set carry for next adc test
 ADC 3 1 -- test adc with carry bit set
 
-ADIW 4 255 -- doesn't propagate to reg 5
-ADIW 4 255 -- should propagate to register 5
-ADIW 4 255 -- should add to register 5 and not set it like previous instruction
-ADIW 5 1 -- make sure this doesn't work in sets of 2 registers
+EOR 0 0 -- clear registers 0 - 3
+EOR 1 1
+EOR 2 2
+EOR 3 3
 
+ADIW 1 255 -- doesn't propagate to reg 2
+ADIW 1 255 -- should propagate to register 2
+ADIW 1 255 -- should add to register 2 and not set it like previous instruction
+ADIW 2 1 -- make sure this doesn't work in sets of 2 registers
 AND 5 1 -- reg 1 contains 255. reg 5 shouldn't change
 AND 5 3 -- arbitrary
 AND 6 1 -- reg 6 is 0... should come to 0
 
-ADIW 7 255 -- next instructions are just to set register values
-ADIW 8 0 -- alternating 0, 255, arbitrary
-ADIW 9 25
-ADIW 10 255
-ADIW 11 0
-ADIW 12 101
-ADIW 13 255
-ADIW 14 0
-ADIW 15 150
+ORI 7 255 -- next instructions are just to set register values
+ORI 8 0 -- alternating 0, 255, arbitrary
+ORI 9 25
+ORI 10 255
+ORI 11 0
+ORI 12 101
+ORI 13 255
+ORI 14 0
+ORI 15 150
 
 DEC 16 0 -- makes it 255
 ORI 18 215 -- makes it 215 because all regs are 0

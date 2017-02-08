@@ -1,7 +1,9 @@
-docs/*~
-Sandbox/*
-Notes/*
+AVR/docs/*~
+AVR/Sandbox/*
+AVR/Notes/*
 AVR/*.o
 AVR/*.cf
 AVR/*.ucf
 AVR/*.lst
+AVR/*.vcd
+AVR/testcases/__pycache__/*

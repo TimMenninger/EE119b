@@ -117,7 +117,7 @@ architecture selReg of Registers is
     type regArray is array (0 to 31) of std_logic_vector(7 downto 0);
 
     -- Define the general purpose registers
-    signal regs : regArray;
+    signal regs : regArray := (others => (others => '0'));
 
 begin
 
@@ -152,7 +152,7 @@ begin
             --      BLD done here
             if (ENWrite = '0') then
                 if (ENRegA = '0') then
-                    regs(conv_integer(regSelA) + clkIdx) <= dataIn;
+                    regs(conv_integer(regSelA)) <= dataIn;
                 end if;
                 if (ENRegB = '0' and ENRead = '0') then
                     regs(conv_integer(regSelB)) <= regs(conv_integer(regSelA));

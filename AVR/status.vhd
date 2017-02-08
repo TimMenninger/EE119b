@@ -102,14 +102,14 @@ architecture update of Status is
     constant C : natural := 0;
 
     -- Flags that we will compute on the run
-    signal HF : std_logic_vector(7 downto 0);
-    signal VF : std_logic_vector(7 downto 0);
-    signal NF : std_logic;
-    signal ZF : std_logic;
-    signal CF : std_logic_vector(7 downto 0);
+    signal HF : std_logic_vector(7 downto 0)        := "00000000";
+    signal VF : std_logic_vector(7 downto 0)        := "00000000";
+    signal NF : std_logic                           := '0';
+    signal ZF : std_logic                           := '0';
+    signal CF : std_logic_vector(7 downto 0)        := "00000000";
 
     -- Register the status flags
-    signal status : std_logic_vector(7 downto 0);
+    signal status : std_logic_vector(7 downto 0)    := "00000000";
 
 begin
 

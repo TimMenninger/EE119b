@@ -112,39 +112,106 @@ architecture toplevel of TEST_REG is
         );
     end component;
 
+    -- The status register is updated by the ALU
+    component Status is
+        port (
+            clk         : in  std_logic;                            -- system clk
+
+            R           : in  std_logic_vector(7 downto 0);         -- result from ALU
+            Rd0         : in  std_logic;                            -- bit 0 of operand A
+            Rd3         : in  std_logic;                            -- bit 3 of operand A
+            Rr3         : in  std_logic;                            -- bit 3 of operand B
+            Rd7         : in  std_logic;                            -- bit 7 of operand A
+            Rr7         : in  std_logic;                            -- bit 7 of operand B
+            Rdb         : in  std_logic;                            -- Bit to set T to
+
+            BST         : in  std_logic;                            -- '1' when in BST
+            sel         : in  std_logic_vector(2 downto 0);         -- selects flag index
+            mask        : in  std_logic_vector(7 downto 0);         -- masks unaffected flags
+            clkIdx      : in  natural range 0 to 3;                 -- clks since instrctn
+            ENRes       : in  std_logic;                            -- set SREG to R
+
+            TF          : out std_logic;                            -- always sent to regs
+            SREG        : out std_logic_vector(7 downto 0)          -- status register
+        );
+    end component;
+
+    -- ALU component we are testing
+    component ALU is
+        port (
+            opA         : in  std_logic_vector(7 downto 0); -- operand 1
+            opB         : in  std_logic_vector(7 downto 0); -- operand 2
+            immed       : in  std_logic_vector(7 downto 0); -- immediate value
+            SREG        : in  std_logic_vector(7 downto 0); -- flags
+
+            ENALU       : in  std_logic_vector(1 downto 0); -- operation type
+            ENCarry     : in  std_logic;                    -- opcode uses carry
+            ENImmed     : in  std_logic;                    -- opcode uses immed
+            ENInvOp     : in  std_logic;                    -- negate operand
+            ENInvRes    : in  std_logic;                    -- negate result
+
+            ENMul       : in  std_logic;                    -- active (low) when MUL
+            clkIdx      : in  natural range 0 to 3;         -- num clks since instrctn
+
+            Rd0         : out std_logic;                    -- bit 0 of operand A
+            Rd3         : out std_logic;                    -- bit 3 of operand A
+            Rr3         : out std_logic;                    -- bit 3 of operand B
+            Rd7         : out std_logic;                    -- bit 7 of operand A
+            Rr7         : out std_logic;                    -- bit 7 of operand B
+
+            result      : out std_logic_vector(7 downto 0)  -- computed result
+        );
+    end component;
+
     -- Signals required for passing around
-    signal reset       : std_logic := '1';
+    signal reset        : std_logic                         := '1';
 
-    signal BLD         : std_logic;
-    signal BST         : std_logic;
+    signal BLD          : std_logic                         := '0';
+    signal BST          : std_logic                         := '0';
 
-    signal sel         : std_logic_vector(2 downto 0);
-    signal flagMask    : std_logic_vector(7 downto 0);
-    signal ENRes       : std_logic;
+    signal sel          : std_logic_vector(2 downto 0)      := "000";
+    signal flagMask     : std_logic_vector(7 downto 0)      := "00000000";
+    signal ENRes        : std_logic                         := '0';
 
-    signal immed       : std_logic_vector(7 downto 0);
-    signal ENALU       : std_logic_vector(1 downto 0);
-    signal ENImmed     : std_logic;
-    signal ENCarry     : std_logic;
-    signal ENInvOp     : std_logic;
-    signal ENInvRes    : std_logic;
+    signal immed        : std_logic_vector(7 downto 0)      := "00000000";
+    signal ENALU        : std_logic_vector(1 downto 0)      := "00";
+    signal ENImmed      : std_logic                         := '0';
+    signal ENCarry      : std_logic                         := '0';
+    signal ENInvOp      : std_logic                         := '0';
+    signal ENInvRes     : std_logic                         := '0';
 
-    signal regSelA     : std_logic_vector(4 downto 0);
-    signal regSelB     : std_logic_vector(4 downto 0);
-    signal ENMul       : std_logic;
-    signal ENSwap      : std_logic;
-    signal ENRegA      : std_logic;
-    signal ENRegB      : std_logic;
-    signal ENRegRd     : std_logic;
-    signal ENRegWr     : std_logic;
+    signal Rd0          : std_logic                         := '0';
+    signal Rd3          : std_logic                         := '0';
+    signal Rr3          : std_logic                         := '0';
+    signal Rd7          : std_logic                         := '0';
+    signal Rr7          : std_logic                         := '0';
 
-    signal clkIdx      : natural range 0 to 3;
+    signal R            : std_logic_vector(7 downto 0)      := "00000000";
+    signal Rdb          : std_logic                         := '0';
 
-    signal T           : std_logic := '0';
+    signal regSelA      : std_logic_vector(4 downto 0)      := "00000";
+    signal regSelB      : std_logic_vector(4 downto 0)      := "00000";
+    signal ENMul        : std_logic                         := '0';
+    signal ENSwap       : std_logic                         := '0';
+    signal ENRegA       : std_logic                         := '0';
+    signal ENRegB       : std_logic                         := '0';
+    signal ENRegRd      : std_logic                         := '0';
+    signal ENRegWr      : std_logic                         := '0';
 
-    signal Rdb         : std_logic := '0';
+    signal clkIdx       : natural range 0 to 3              := 0;
+
+    signal TF           : std_logic                         := '0';
+
+    signal SREG         : std_logic_vector(7 downto 0)      := "00000000";
+
+    signal dataOutA     : std_logic_vector(7 downto 0)      := "00000000";
+    signal dataOutB     : std_logic_vector(7 downto 0)      := "00000000";
 
 begin
+
+    -- Data outputs are what we care about
+    RegAOut <= dataOutA;
+    RegBOut <= dataOutB;
 
     ControlUUT : ControlUnit
         port map (
@@ -186,7 +253,7 @@ begin
 
             BLD,
             sel,
-            T,
+            TF,
 
             regSelA,
             regSelB,
@@ -198,8 +265,55 @@ begin
             ENRegWr,
 
             Rdb,
-            RegAOut,    -- Test entity output
-            RegBOut     -- Test entity output
+            dataOutA,
+            dataOutB
+        );
+
+    StatusUUT : Status
+        port map (
+            clk,
+
+            R,
+            Rd0,
+            Rd3,
+            Rr3,
+            Rd7,
+            Rr7,
+            Rdb,
+
+            BST,
+            sel,
+            flagMask,
+            clkIdx,
+            ENRes,
+
+            TF,
+            SREG
+        );
+
+    ALUUUT : ALU
+        port map (
+            dataOutA,
+            dataOutB,
+            immed,
+            SREG,
+
+            ENALU,
+            ENCarry,
+            ENImmed,
+            ENInvOp,
+            ENInvRes,
+
+            ENMul,
+            clkIdx,
+
+            Rd0,
+            Rd3,
+            Rr3,
+            Rd7,
+            Rr7,
+
+            R
         );
 
 end architecture;
@@ -220,10 +334,10 @@ use ieee.numeric_std.all;
 use std.textio.all;
 use ieee.std_logic_textio.all;
 
-entity REGS_TESTBENCH is
-end REGS_TESTBENCH;
+entity REG_TESTBENCH is
+end REG_TESTBENCH;
 
-architecture testbench of REGS_TESTBENCH is
+architecture testbench of REG_TESTBENCH is
 
     -- Independent component that tests registers
     component TEST_REG is
@@ -242,7 +356,7 @@ architecture testbench of REGS_TESTBENCH is
     file REG_vectors: text;
 
     -- All the variables we need
-    signal clk          : std_logic := '0';
+    signal clk          : std_logic                     := '0';
     signal IR           : std_logic_vector(15 downto 0) := "0000000000000000";
     signal regIn        : std_logic_vector(7 downto 0)  := "00000000";
     signal regAOut      : std_logic_vector(7 downto 0)  := "00000000";
@@ -256,7 +370,7 @@ begin
     REG_UUT : TEST_REG
         port map (IR, regIn, clk, regAOut, regBOut);
 
-    DO_REG_TEST: process
+    process
         -- Variables for reading register test file
         variable currLine       : line;
         variable instruction    : std_logic_vector(15 downto 0);
@@ -268,16 +382,13 @@ begin
         -- Open the testcase file
         file_open(REG_vectors, "testcases/REG_vectors.txt", read_mode);
 
-        -- Wait a few clocks
-        wait for 200 ns;
-
         -- Skip first line
+        readline(REG_vectors, currLine);
         readline(REG_vectors, currLine);
 
         -- Go trough every test case
         while not endfile(REG_vectors) loop
             -- Parse the line
-            readline(REG_vectors, currLine);
             read(currLine, instruction);
             read(currLine, delimiter);
             read(currLine, nextRegIn);
@@ -302,11 +413,15 @@ begin
 
             -- Finish clock cycle then repeat
             wait for 5 ns;
+
+            readline(REG_vectors, currLine);
         end loop;
         file_close(REG_vectors);
 
         -- Done simulation
         END_SIM <= TRUE;
+        wait;
+
     end process;
 
     -- this process generates a 50 ns period, 50% duty cycle clock

@@ -98,7 +98,7 @@ architecture toplevel of TEST_ALU is
 
             regSelA     : in  std_logic_vector(4 downto 0); -- register select
             regSelB     : in  std_logic_vector(4 downto 0); -- register select
-            ENMul     : in  std_logic;                    -- write to registers 0 and 1
+            ENMul       : in  std_logic;                    -- write to registers 0 and 1
             ENSwap      : in  std_logic;                    -- swap nibbles
             ENRegA      : in  std_logic;                    -- active low enable reg A
             ENRegB      : in  std_logic;                    -- active low enable reg B
@@ -160,7 +160,7 @@ architecture toplevel of TEST_ALU is
 
             regSelA     : out std_logic_vector(4 downto 0); -- register A select
             regSelB     : out std_logic_vector(4 downto 0); -- register B select
-            ENMul     : out std_logic;                    -- write to registers 0 and 1
+            ENMul       : out std_logic;                    -- write to registers 0 and 1
             ENSwap      : out std_logic;                    -- SWAP instruction
             ENRegA      : out std_logic;                    -- enable register A
             ENRegB      : out std_logic;                    -- enable register B
@@ -170,47 +170,47 @@ architecture toplevel of TEST_ALU is
     end component;
 
     -- All the variables we need
-    signal reset    : std_logic := '1';
+    signal reset    : std_logic                     := '1';
 
-    signal immed    : std_logic_vector(7 downto 0);
-    signal SREG     : std_logic_vector(7 downto 0);
+    signal immed    : std_logic_vector(7 downto 0)  := "00000000";
+    signal SREG     : std_logic_vector(7 downto 0)  := "00000000";
 
-    signal ENALU    : std_logic_vector(1 downto 0);
-    signal ENCarry  : std_logic;
-    signal ENImmed  : std_logic;
-    signal ENInvOp  : std_logic;
-    signal ENInvRes : std_logic;
+    signal ENALU    : std_logic_vector(1 downto 0)  := "00";
+    signal ENCarry  : std_logic                     := '0';
+    signal ENImmed  : std_logic                     := '0';
+    signal ENInvOp  : std_logic                     := '0';
+    signal ENInvRes : std_logic                     := '0';
 
-    signal Rd0      : std_logic;
-    signal Rd3      : std_logic;
-    signal Rr3      : std_logic;
-    signal Rd7      : std_logic;
-    signal Rr7      : std_logic;
+    signal Rd0      : std_logic                     := '0';
+    signal Rd3      : std_logic                     := '0';
+    signal Rr3      : std_logic                     := '0';
+    signal Rd7      : std_logic                     := '0';
+    signal Rr7      : std_logic                     := '0';
 
-    signal R        : std_logic_vector(7 downto 0);
-    signal Rdb      : std_logic;
+    signal R        : std_logic_vector(7 downto 0)  := "00000000";
+    signal Rdb      : std_logic                     := '0';
 
-    signal sel      : std_logic_vector(2 downto 0);
-    signal flagMask : std_logic_vector(7 downto 0);
-    signal ENRes    : std_logic;
+    signal sel      : std_logic_vector(2 downto 0)  := "000";
+    signal flagMask : std_logic_vector(7 downto 0)  := "00000000";
+    signal ENRes    : std_logic                     := '0';
 
-    signal TF       : std_logic;
+    signal TF       : std_logic                     := '0';
 
-    signal BLD      : std_logic;
-    signal BST      : std_logic;
-    signal clkIdx   : natural range 0 to 3;
+    signal BLD      : std_logic                     := '0';
+    signal BST      : std_logic                     := '0';
+    signal clkIdx   : natural range 0 to 3          := 0;
 
-    signal regSelA  : std_logic_vector(4 downto 0);
-    signal regSelB  : std_logic_vector(4 downto 0);
-    signal ENMul    : std_logic;
-    signal ENSwap   : std_logic;
-    signal ENRegA   : std_logic;
-    signal ENRegB   : std_logic;
-    signal ENRegRd  : std_logic;
-    signal ENRegWr  : std_logic;
+    signal regSelA  : std_logic_vector(4 downto 0)  := "00000";
+    signal regSelB  : std_logic_vector(4 downto 0)  := "00000";
+    signal ENMul    : std_logic                     := '0';
+    signal ENSwap   : std_logic                     := '0';
+    signal ENRegA   : std_logic                     := '0';
+    signal ENRegB   : std_logic                     := '0';
+    signal ENRegRd  : std_logic                     := '0';
+    signal ENRegWr  : std_logic                     := '0';
 
-    signal dataOutA : std_logic_vector(7 downto 0);
-    signal dataOutB : std_logic_vector(7 downto 0);
+    signal dataOutA : std_logic_vector(7 downto 0)  := "00000000";
+    signal dataOutB : std_logic_vector(7 downto 0)  := "00000000";
 
 begin
 
@@ -434,6 +434,8 @@ begin
 
         -- Done simulation
         END_SIM <= TRUE;
+        wait;
+
     end process;
 
     -- this process generates a 50 ns period, 50% duty cycle clock

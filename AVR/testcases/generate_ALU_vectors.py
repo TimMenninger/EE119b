@@ -5,6 +5,9 @@ from generate_values import *
 # Instructions where we don't write result back to register
 dontWriteRegs = [ "BCLR", "BSET", "BST", "CP", "CPC", "CPI", "MUL" ]
 
+# Two-clock instructions
+twoClocks = [ "ADIW", "SBIW", "MUL" ]
+
 def generate(fIn, fOut):
     fIn.readline() # First line is a comment
     line = fIn.readline()
@@ -24,21 +27,31 @@ def generate(fIn, fOut):
 
         vals = line.split(" ")
 
-        opA = int(vals[1])
-        opB = int(vals[2])
-        regAIdx = opA
-        if (vals[0] == "MUL"):
-            regAIdx = 0
-        opcode = compute_instruction(vals[0], opA, opB)
+        inA = int(vals[1])
+        regAIdx = inA
+        inB = int(vals[2])
+        opcode = compute_instruction(vals[0], inA, inB)
 
         # Check if opA and opB are constants or register indices
         instruction = instructions[vals[0]][0]
         if ('r' in instruction):
-            opB = registers[opB]
+            opB = registers[inB]
+        else:
+            opB = inB
         if ('d' in instruction):
-            opA = registers[opA]
+            opA = registers[inA]
+        else:
+            opA = inA
+
+        # If it's a word instruction, reflect that in operand
+        if (vals[0] in [ "ADIW", "SBIW" ]):
+            opA += 256 * registers[inA+1]
 
         result, status = compute_result(vals[0], opA, opB, list(status))
+
+        # Undo word correction
+        if (vals[0] in [ "ADIW", "SBIW" ]):
+            expA -= 256 * registers[inA+1]
 
         opA = int_to_binary(opA, 8)
         opA = [ str(i) for i in opA ]
@@ -49,8 +62,10 @@ def generate(fIn, fOut):
 
         vector = [ opcode, ",", opA, ",", opB, ",", result, ",", status, "\n" ]
         if (vals[0] == "ADIW" or vals[0] == "SBIW" or vals[0] == "MUL"):
-            registers[regAIdx+1] = binary_str_to_int(result[:8])
-            registers[regAIdx] = binary_str_to_int(result[8:])
+            if (vals[0] == "MUL"):
+                registers[0] = binary_str_to_int(nextRegIn[8:])
+            else:
+                registers[regAIdx] = binary_str_to_int(nextRegIn[8:])
             vector[6] = int_to_binary(registers[regAIdx], 8)
             vector[6] = [ str(i) for i in vector[6] ]
             vector[6] = "".join(vector[6])
@@ -58,6 +73,13 @@ def generate(fIn, fOut):
             fOut.write("".join(vector))
 
             # Next clock
+            vector[2] = int_to_binary(registers[regAIdx+1])
+            vector[2] = [ str(i) for i in vector[2] ]
+            vector[2] = "".join(vector[2])
+                if (vals[0] == "MUL"):
+                    registers[1] = binary_str_to_int(nextRegIn[8:])
+                else:
+                    registers[regAIdx+1] = binary_str_to_int(nextRegIn[8:])
             vector[4] = "00000000"
             vector[6] = int_to_binary(registers[regAIdx+1], 8)
             vector[6] = [ str(i) for i in vector[6] ]
