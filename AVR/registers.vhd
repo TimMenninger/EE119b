@@ -9,25 +9,15 @@ use ieee.numeric_std.all;
 -- registers.vhd
 --
 -- This contains code to read and write to registers.  When writing to registers,
--- data appears on DataIn.  Controls and enables work together as such:
--- READ:
---      ENRegA low: dataOutA output reflects register at selRegA (0 to 31)
---      ENRegB low: dataOutB output reflects register at selRegB (0 to 31)
---      Enable signals are independent of each other.
--- WRITE:
---      Outputs are always high impedance
---      ENRegA  ENRegB  Description
---        1       X     Nothing happens
---        0       1     Value on dataIn is loaded into register at selRegA
---        0       0     Value at register selRegB loaded into register selRegA
---                          when READ inactive, acts like 0 1 when active
+-- data appears on ALUIn if it is coming from the ALU and from memIn if it is coming
+-- from memory.
 --
 -- Inputs:
 --      clk : std_logic
 --          The global clock
 --      clkIdx : natural range 0 to 3
 --          The number clock rising edges since the beginning of the instruction
---      dataIn : std_logic_vector(7 downto 0)
+--      ALUIn : std_logic_vector(7 downto 0)
 --          Data written to a register in the appropriate scenarios
 --      BLD : std_logic
 --          '1' when BLD executing
@@ -50,11 +40,9 @@ use ieee.numeric_std.all;
 --      ENRegB : std_logic
 --          When active (active low), register B is enabled for output.  Otherwise
 --          it is hi-Z
---      ENRead : std_logic
---          When active (active low), register outputs will respond to ENRegX
 --      ENWrite : std_logic
 --          When active (active low), registers will be written to on rising edge of
---          clock.  Data will be taken from dataIn and written according to guidelines
+--          clock.  Data will be taken from ALUIn and written according to guidelines
 --          above.
 --
 -- Outputs:
@@ -79,7 +67,14 @@ entity Registers is
     port (
         clk         : in  std_logic;                    -- system clock
         clkIdx      : in  natural range 0 to 3;         -- number of clocks since instr
-        dataIn      : in  std_logic_vector(7 downto 0); -- data input
+
+        ALUIn       : in  std_logic_vector(7 downto 0); -- data input from ALU
+        memIn       : in  std_logic_vector(7 downto 0); -- data input from memory
+        immedIn     : in  std_logic_vector(7 downto 0); -- immediate value from instr
+        sourceSel   : in  std_logic_vector(1 downto 0); -- used to choose data source
+
+        wordRegIn   : in  std_logic_vector(15 downto 0);-- new value for word register
+        wordRegSel  : in  std_logic_vector(2 downto 0); -- selects which word register
 
         BLD         : in  std_logic;                    -- true when BLD occurring
         sel         : in  std_logic_vector(2 downto 0); -- bit select for BLD
@@ -91,12 +86,12 @@ entity Registers is
         ENSwap      : in  std_logic;                    -- swap nibbles
         ENRegA      : in  std_logic;                    -- active low enable reg A
         ENRegB      : in  std_logic;                    -- active low enable reg B
-        ENRead      : in  std_logic;                    -- active low enable read
         ENWrite     : in  std_logic;                    -- active low enable write
 
         Rdb         : out std_logic;                    -- b'th bit of reg A
         dataOutA    : out std_logic_vector(7 downto 0); -- low byte of output
-        dataOutB    : out std_logic_vector(7 downto 0)  -- high byte of output
+        dataOutB    : out std_logic_vector(7 downto 0); -- high byte of output
+        wordRegOut  : out std_logic_vector(15 downto 0) -- word register output
     );
 end Registers;
 
@@ -119,6 +114,9 @@ architecture selReg of Registers is
     -- Define the general purpose registers
     signal regs : regArray := (others => (others => '0'));
 
+    -- The data that will be written to register
+    signal dataIn : std_logic_vector(7 downto 0);
+
 begin
 
     -- Set Rdb for BLD case
@@ -129,6 +127,18 @@ begin
 
     -- Propagate register B data to output
     dataOutB <= regs(conv_integer(regSelB));
+
+    -- Choose which data input to use
+    with sourceSel select dataIn <=
+        ALUIn               when "00",
+        memIn               when "01",
+        immedIn             when others;
+
+    -- Choose which word register to output
+    with wordRegSel(1 downto 0) select wordRegOut <=
+        regs(27) & regs(26) when "01",
+        regs(29) & regs(28) when "10",
+        regs(31) & regs(30) when others;
 
     -------------------------------------------------------------------------------------
     -- process writeRegs
@@ -141,24 +151,55 @@ begin
     begin
         -- Only write to registers on rising clock edge
         if (rising_edge(clk)) then
-            -- If we are writing, then blindly write from dataIn to any enabled
+            -- If we are writing, then blindly write from ALUIn to any enabled
             -- registers.  Some opcodes are special cases where we have to fix the write.
             -- This handles ADIW and SBIW by adding in the clock number, which will be
-            -- 0 for everything except the second clock where we write to Rd+1
+            -- 0 for everything except the second clock where we write to Rd+1.  If
+            -- we have a word register select signal, we will write that, too.
             --
             -- Special cases:
             --      MUL always writes to R1 and R0
             --      SWAP done here, not somewhere else to be written here
             --      BLD done here
             if (ENWrite = '0') then
+                -- Handle word registers
+                case wordRegSel is
+                    when "101" => -- X
+                        regs(26) <= wordRegIn(7 downto 0);
+                        regs(27) <= wordRegIn(15 downto 8);
+                        regs(28) <= regs(28);
+                        regs(29) <= regs(29);
+                        regs(30) <= regs(30);
+                        regs(31) <= regs(31);
+                    when "110" => -- Y
+                        regs(26) <= regs(26);
+                        regs(27) <= regs(27);
+                        regs(28) <= wordRegIn(7 downto 0);
+                        regs(29) <= wordRegIn(15 downto 8);
+                        regs(30) <= regs(30);
+                        regs(31) <= regs(31);
+                    when "111" => -- Z
+                        regs(26) <= regs(26);
+                        regs(27) <= regs(27);
+                        regs(28) <= regs(28);
+                        regs(29) <= regs(29);
+                        regs(30) <= wordRegIn(7 downto 0);
+                        regs(31) <= wordRegIn(15 downto 8);
+                    when others =>
+                        regs(26) <= regs(26);
+                        regs(27) <= regs(27);
+                        regs(28) <= regs(28);
+                        regs(29) <= regs(29);
+                        regs(30) <= regs(30);
+                        regs(31) <= regs(31);
+                end case;
+
+                -- Handle general registers
                 if (ENRegA = '0') then
                     regs(conv_integer(regSelA)) <= dataIn;
                 end if;
-                if (ENRegB = '0' and ENRead = '0') then
-                    regs(conv_integer(regSelB)) <= regs(conv_integer(regSelA));
-                end if;
-                if (ENRegB = '0' and ENRead = '1') then
-                    regs(conv_integer(regSelB)) <= dataIn;
+                if (ENRegB = '0') then
+                    regs(conv_integer(regSelA)) <= regs(conv_integer(regSelB));
                 end if;
             end if;
 

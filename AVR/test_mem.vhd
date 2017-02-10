@@ -1,40 +1,40 @@
 ----------------------------------------------------------------------------
 --
---  Atmel AVR ALU Test Entity Declaration
+--  Atmel AVR Data Memory Test Entity Declaration
 --
---  This is the entity declaration which must be used for building the ALU
---  portion of the AVR design for testing.  It is to be used by a top-level
---  test (this does no testing itself).
+--  This is the entity declaration which must be used for building the data
+--  memory access portion of the AVR design for testing.
 --
 --  Revision History:
---     17 Apr 98  Glen George       Initial revision.
---     20 Apr 98  Glen George       Fixed minor syntax bugs.
---     18 Apr 04  Glen George       Updated comments and formatting.
---     21 Jan 06  Glen George       Updated comments.
---     01 Feb 17  Tim Menninger     Filled in structure to test ALU
---     09 Feb 17  Tim Menninger     Updated with memory implementation
+--     24 Apr 98  Glen George       Initial revision.
+--     25 Apr 00  Glen George       Fixed entity name and updated comments.
+--      2 May 02  Glen George       Updated comments.
+--      3 May 02  Glen George       Fixed Reset signal type.
+--     23 Jan 06  Glen George       Updated comments.
+--     21 Jan 08  Glen George       Updated comments.
+--     09 Feb 17  Tim Menninger     Implemented memory test
 --
 ----------------------------------------------------------------------------
 
 
 --
---  TEST_ALU
+--  TEST_MEM
 --
---  This is the ALU testing interface.  It just brings all the important
---  ALU signals out for testing along with the Instruction Register.
+--  This is the data memory access testing interface.  It just brings all
+--  the important data memory access signals out for testing along with the
+--  Instruction Register and Program Data Bus.
 --
 --  Inputs:
---    IR       - Instruction Register (16 bits)
---    OperandA - first operand to ALU (8 bits) - looks like the output
---               of the register array
---    OperandB - second operand to ALU (8 bits) - looks like the output
---               of the register array
---    clk    - the system clk
+--    IR     - Instruction Register (16 bits)
+--    ProgDB - program memory data bus (16 bits)
+--    Reset  - active low reset signal
+--    clock  - the system clock
 --
 --  Outputs:
---    Result   - result of the ALU operation selected by the Instruction
---               Register (8 bits)
---    StatReg  - Status Register contents (8 bits)
+--    DataAB - data memory address bus (16 bits)
+--    DataDB - data memory data bus (8 bits)
+--    DataRd - data read (active low)
+--    DataWr - data write (active low)
 --
 
 library ieee;
@@ -42,23 +42,23 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
--- use work.opcodes.all;
 
-
-entity  TEST_ALU  is
+entity  TEST_MEM  is
 
     port (
-        IR        :  in  std_logic_vector(15 downto 0);     -- Instruction Register
-        OperandA  :  in  std_logic_vector(7 downto 0);      -- first operand
-        OperandB  :  in  std_logic_vector(7 downto 0);      -- second operand
-        clk       :  in  std_logic;                         -- system clk
-        Result    :  out std_logic_vector(7 downto 0);      -- ALU result
-        StatReg   :  out std_logic_vector(7 downto 0)       -- status register
+        IR      :  in     std_logic_vector(15 downto 0);    -- Instruction Register
+        ProgDB  :  in     std_logic_vector(15 downto 0);    -- second word of instr
+        Reset   :  in     std_logic;                        -- system reset signal
+        clk     :  in     std_logic;                        -- system clock
+        DataAB  :  out    std_logic_vector(15 downto 0);    -- data address bus
+        DataDB  :  inout  std_logic_vector(7 downto 0);     -- data data bus
+        DataRd  :  out    std_logic;                        -- data read
+        DataWr  :  out    std_logic                         -- data write
     );
 
-end  TEST_ALU;
+end  TEST_MEM;
 
-architecture toplevel of TEST_ALU is
+architecture toplevel of TEST_MEM is
 
     -- ALU component we are testing
     component ALU is
@@ -172,6 +172,8 @@ architecture toplevel of TEST_ALU is
             ENRegA      : out std_logic;                    -- enable register A
             ENRegB      : out std_logic;                    -- enable register B
             ENRegWr     : out std_logic;                    -- enable register writing
+            sourceSel   : out std_logic_vector(1 downto 0); -- used to choose data input
+            wordReg     : out std_logic_vector(2 downto 0); -- used to choose X Y Z regs
 
             -- Data memory control
             memRW       : out std_logic;                    -- read/write to memory
@@ -184,9 +186,46 @@ architecture toplevel of TEST_ALU is
         );
     end component;
 
-    -- All the variables we need
-    signal reset    : std_logic                     := '1';
+    -- Memory unit
+    component MemoryUnit is
+        port (
+            clk         : in  std_logic;                        -- system clock
+            clkIdx      : in  natural range 0 to 3;             -- number of clocks passed
 
+            regAddr     : in  std_logic_vector(15 downto 0);    -- address from registers
+            SPAddr      : in  std_logic_vector(15 downto 0);    -- address from stack ptr
+            IRAddr      : in  std_logic_vector(15 downto 0);    -- address from instruction
+            immed       : in  std_logic_vector(5 downto 0);     -- memory address offset
+            decrement   : in  std_logic;                        -- when low, decrement
+
+            addrSel     : in  std_logic_vector(1 downto 0);     -- chooses which address
+            RW          : in  std_logic;                        -- read/not write
+            addBefore   : in  std_logic;                        -- when low, add offset
+                                                                -- to address before output
+            dataIn      : in  std_logic_vector(7 downto 0);     -- input data
+            addrOut     : out std_logic_vector(15 downto 0);    -- address after inc/dec
+
+            DataAB      : out std_logic_vector(15 downto 0);    -- address to memory
+            DataDB      : inout std_logic_vector(7 downto 0);   -- data bus in and out
+            DataRd      : out std_logic;                        -- read signal to memory
+            DataWr      : out std_logic                         -- write signal to memory
+        );
+    end component;
+
+    -- The stack pointer
+    component Stack is
+        port (
+            clk         : in  std_logic;                            -- system clock
+            reset       : in  std_logic;                            -- active low reset
+
+            dataIn      : in  std_logic_vector(15 downto 0);        -- new stack pointer
+            ENWr        : in  std_logic;                            -- when low, look at data
+
+            SP          : out std_logic_vector(15 downto 0)         -- stack pointer
+        );
+    end component;
+
+    -- All the variables we need
     signal immed    : std_logic_vector(7 downto 0)  := "00000000";
     signal SREG     : std_logic_vector(7 downto 0)  := "00000000";
 
@@ -215,11 +254,8 @@ architecture toplevel of TEST_ALU is
     signal BST      : std_logic                     := '0';
     signal clkIdx   : natural range 0 to 3          := 0;
 
-    signal memIn      : std_logic_vector(7 downto 0)  := "00000000";
-    signal immedIn    : std_logic_vector(7 downto 0)  := "00000000";
     signal sourceSel  : std_logic_vector(1 downto 0)  := "00";
 
-    signal wordRegIn  : std_logic_vector(15 downto 0) := "0000000000000000";
     signal wordRegSel : std_logic_vector(2 downto 0)  := "000";
 
     signal regSelA  : std_logic_vector(4 downto 0)  := "00000";
@@ -243,18 +279,15 @@ architecture toplevel of TEST_ALU is
     -- Stack pointer control
     signal SPWr     : std_logic                     := '0';
 
+    signal SP       : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal addrOut  : std_logic_vector(15 downto 0) := "0000000000000000";
+
 begin
-
-    -- Output the status signal being passed around
-    StatReg <= SREG;
-
-    -- Output the result signal being passed around
-    Result <= R;
 
     ALUUUT : ALU
         port map (
-            OperandA,
-            OperandB,
+            dataOutA,
+            dataOutB,
             immed,
             SREG,
 
@@ -282,10 +315,10 @@ begin
             clkIdx,
 
             R,
-            memIn,
-            immedIn,
+            DataDB,
+            immed,
             sourceSel,
-            wordRegIn,
+            addrOut,
             wordRegSel,
 
             BLD,
@@ -356,6 +389,8 @@ begin
             ENRegA,
             ENRegB,
             ENRegWr,
+            sourceSel,
+            wordRegSel,
 
             memRW,
             addrSel,
@@ -365,128 +400,192 @@ begin
             SPWr
         );
 
+    MemoryUUT : MemoryUnit
+        port map (
+            clk,
+            clkIdx,
+
+            wordRegOut,
+            SP,
+            ProgDB,
+            immed(5 downto 0),
+            decrement,
+
+            addrSel,
+            memRW,
+            addBefore,
+            dataOutA,
+            addrOut,
+
+            DataAB,
+            DataDB,
+            DataRd,
+            DataWr
+        );
+
+    -- Stack pointer
+    StackPointer : Stack
+        port map (
+            clk,
+            reset,
+
+            addrOut,
+            SPWr,
+
+            SP
+        );
+
 end architecture;
 
 ----------------------------------------------------------------------------
 --
---  This is the entity that actually tests the ALU.
+--  This is the entity that actually tests the memory addressing
 --
 --  Revision History:
---      1 Feb 17  Tim Menninger     Created
+--     09 Feb 17  Tim Menninger     Created
 --
 ----------------------------------------------------------------------------
 
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 use std.textio.all;
 use ieee.std_logic_textio.all;
 
-entity ALU_TESTBENCH is
-end ALU_TESTBENCH;
+entity MEM_TESTBENCH is
+end MEM_TESTBENCH;
 
-architecture testbench of ALU_TESTBENCH is
+architecture testbench of MEM_TESTBENCH is
 
-    -- Independent component that tests ALU
-    component TEST_ALU is
-
+    -- Independent component that tests registers
+    component TEST_MEM is
         port (
-            IR        :  in  std_logic_vector(15 downto 0);     -- Instruction Register
-            OperandA  :  in  std_logic_vector(7 downto 0);      -- first operand
-            OperandB  :  in  std_logic_vector(7 downto 0);      -- second operand
-            clk       :  in  std_logic;                         -- system clock
-            Result    :  out std_logic_vector(7 downto 0);      -- ALU result
-            StatReg   :  out std_logic_vector(7 downto 0)       -- status register
+            IR      :  in     std_logic_vector(15 downto 0);    -- Instruction Register
+            ProgDB  :  in     std_logic_vector(15 downto 0);    -- second word of instr
+            Reset   :  in     std_logic;                        -- system reset signal
+            clk     :  in     std_logic;                        -- system clock
+            DataAB  :  out    std_logic_vector(15 downto 0);    -- data address bus
+            DataDB  :  inout  std_logic_vector(7 downto 0);     -- data data bus
+            DataRd  :  out    std_logic;                        -- data read
+            DataWr  :  out    std_logic                         -- data write
         );
-
     end component;
 
     -- Test case files
-    file ALU_vectors: text;
+    file MEM_vectors: text;
 
     -- All the variables we need
-    signal clk          : std_logic := '0';
+    signal clk          : std_logic                     := '0';
     signal IR           : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal opA          : std_logic_vector(7 downto 0)  := "00000000";
-    signal opB          : std_logic_vector(7 downto 0)  := "00000000";
-    signal result       : std_logic_vector(7 downto 0)  := "00000000";
-    signal status       : std_logic_vector(7 downto 0)  := "00000000";
+    signal ProgDB       : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal Reset        : std_logic                     := '0';
+    signal DataAB       : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal DataDB       : std_logic_vector(7 downto 0)  := "00000000";
+    signal DataRd       : std_logic                     := '0';
+    signal DataWr       : std_logic                     := '0';
 
     -- Signifies end of simulation
     signal END_SIM      : boolean := FALSE;
 
 begin
 
-    ALU_UUT : TEST_ALU
-        port map (IR, opA, opB, clk, result, status);
+    MEM_UUT : TEST_MEM
+        port map (IR, ProgDB, Reset, clk, DataAB, DataDB, DataRd, DataWr);
 
-    DO_ALU_TEST: process
-        -- Variables for reading ALU test file
+    process
+        -- Variables for reading register test file
         variable currLine       : line;
         variable instruction    : std_logic_vector(15 downto 0);
-        variable operandA       : std_logic_vector(7 downto 0);
-        variable operandB       : std_logic_vector(7 downto 0);
-        variable expResult      : std_logic_vector(7 downto 0);
-        variable expStatus      : std_logic_vector(7 downto 0);
-        variable nextStatus     : std_logic_vector(7 downto 0) := "--------";
+        variable instProgDB     : std_logic_vector(15 downto 0);
+        variable dataIn         : std_logic_vector(7 downto 0);
+        variable expDataAB      : std_logic_vector(15 downto 0);
+        variable expDataDB      : std_logic_vector(7 downto 0);
+        variable expRd          : std_logic;
+        variable expWr          : std_logic;
+        variable numClks        : std_logic_vector(1 downto 0);
         variable delimiter      : character;
+        -- Number of clocks as integer
+        variable nClksInt       : natural range 0 to 3;
+        -- Iteration variable
+        variable i              : natural range 0 to 3;
     begin
-        -- Open the testcase file
-        file_open(ALU_vectors, "testcases/ALU_vectors.txt", read_mode);
-
-        -- Wait a few clocks
+        -- Wait a few clocks with reset active
+        Reset <= '0';
         wait for 200 ns;
+        Reset <= '1';
 
-        -- First line is column headers
-        readline(ALU_vectors, currLine);
+        -- Open the testcase file
+        file_open(MEM_vectors, "testcases/MEM_vectors.txt", read_mode);
+
+        -- Skip first line
+        readline(MEM_vectors, currLine);
 
         -- Go trough every test case
-        while not endfile(ALU_vectors) loop
-            -- Status checked one clock late
-            expStatus := nextStatus;
-
+        while not endfile(MEM_vectors) loop
             -- Parse the line
-            readline(ALU_vectors, currLine);
+            readline(MEM_vectors, currLine);
             read(currLine, instruction);
             read(currLine, delimiter);
-            read(currLine, operandA);
+            read(currLine, instProgDB);
             read(currLine, delimiter);
-            read(currLine, operandB);
+            read(currLine, dataIn);
             read(currLine, delimiter);
-            read(currLine, expResult);
+            read(currLine, expDataAB);
             read(currLine, delimiter);
-            read(currLine, nextStatus);
+            read(currLine, expDataDB);
+            read(currLine, delimiter);
+            read(currLine, expRd);
+            read(currLine, delimiter);
+            read(currLine, expWr);
+            read(currLine, delimiter);
+            read(currLine, numClks);
+
+            nClksInt := conv_integer(numClks);
 
             -- Instruction comes in short after clock rising edge
             wait for 5 ns;
             IR <= instruction;
-            opA <= operandA;
-            opB <= operandB;
+            ProgDB <= instProgDB;
+            DataDB <= "ZZZZZZZZ";
 
-            -- Allow time for computation then check output and simulate result writeback
-            wait for 40 ns;
-            assert (std_match(result, expResult))
-                report  "incorrect ALU result"
+            -- Make sure signals inactive
+            assert (std_match(DataRd, '1'))
+                report  "read signal incorrect"
                 severity  ERROR;
-            assert (std_match(status, expStatus))
-                report  "incorrect ALU status output"
+            assert (std_match(DataWr, '1'))
+                report  "write signal incorrect"
+                severity  ERROR;
+
+            -- Wait until end of clock
+            wait for 40 ns;
+
+            -- Wait clock cycles if longer than 1 clock
+            for i in 1 to nClksInt loop
+                wait for 50 ns;
+            end loop;
+
+            -- At the end of the cycle, when clock is low, check the outputs
+            assert (std_match(DataRd, expRd))
+                report  "read signal incorrect"
+                severity  ERROR;
+            assert (std_match(DataWr, expWr))
+                report  "write signal incorrect"
+                severity  ERROR;
+            assert (std_match(DataDB, expDataDB))
+                report  "data bus incorrect"
+                severity  ERROR;
+            assert (std_match(DataAB, expDataAB))
+                report  "address bus incorrect"
                 severity  ERROR;
 
             -- Finish clock cycle then repeat
+            DataDB <= dataIn;
             wait for 5 ns;
         end loop;
-        file_close(ALU_vectors);
+        file_close(MEM_vectors);
 
-        -- Check last status
-        wait for 45 ns;
-        expStatus := nextStatus;
-        assert (std_match(status, expStatus))
-            report  "incorrect ALU status output"
-            severity  ERROR;
-
-        -- Buffer for end of wave viewer
-        wait for 50 ns;
+        wait for 100 ns;
 
         -- Done simulation
         END_SIM <= TRUE;

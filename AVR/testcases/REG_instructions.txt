@@ -17,7 +17,7 @@ BCLR 5 0
 BCLR 6 0
 BCLR 7 0
 
-EOR 0 0 -- set all registers to 0 so we know their values too
+EOR 0 0 -- set all registers to 0
 EOR 1 1
 EOR 2 2
 EOR 3 3

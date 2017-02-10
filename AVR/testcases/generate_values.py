@@ -37,7 +37,31 @@ instructions = {
     "SBIW"  :  ("10010111KKddKKKK", 2), # Rd+1|Rd = Rd+1|Rd - K
     "SUB"   :  ("000110rdddddrrrr", 1), # Rd = Rd - Rr
     "SUBI"  :  ("0101KKKKddddKKKK", 1), # Rd = Rd - K
-    "SWAP"  :  ("1001010ddddd0010", 1)  # Swap nibbles of Rd
+    "SWAP"  :  ("1001010ddddd0010", 1), # Swap nibbles of Rd
+    "LDX"   :  ("1001000ddddd1100", 2), # LD Rd, X
+    "LDXI"  :  ("1001000ddddd1101", 2), # LD Rd, X+
+    "LDXD"  :  ("1001000ddddd1110", 2), # LD Rd, -X
+    "LDYI"  :  ("1001000ddddd1001", 2), # LD Rd, Y+
+    "LDYD"  :  ("1001000ddddd1010", 2), # LD Rd, -Y
+    "LDZI"  :  ("1001000ddddd0001", 2), # LD Rd, Z+
+    "LDZD"  :  ("1001000ddddd0010", 2), # LD Rd, -Z
+    "LDDY"  :  ("10q0qq0ddddd1qqq", 2), # LDD Rd, Y + q
+    "LDDZ"  :  ("10q0qq0ddddd0qqq", 2), # LDD Rd, Z + q
+    "LDI"   :  ("1110kkkkddddkkkk", 1), # LDI Rd, k
+    "LDS"   :  ("1001000ddddd0000", 3), # LDS Rd, m
+    "MOV"   :  ("001011rdddddrrrr", 1), # MOV Rd, Rr
+    "STX"   :  ("1001001rrrrr1100", 2), # ST X, Rr
+    "STXI"  :  ("1001001rrrrr1101", 2), # ST X+, Rr
+    "STXD"  :  ("1001001rrrrr1110", 2), # ST -X, Rr
+    "STYI"  :  ("1001001rrrrr1001", 2), # ST Y+, Rr
+    "STYD"  :  ("1001001rrrrr1010", 2), # ST -Y, Rr
+    "STZI"  :  ("1001001rrrrr0001", 2), # ST Z+, Rr
+    "STZD"  :  ("1001001rrrrr0010", 2), # ST -Z, Rr
+    "STDY"  :  ("10q0qq1rrrrr1qqq", 2), # STD Y + q, Rr
+    "STDZ"  :  ("10q0qq1rrrrr0qqq", 2), # STD Z + q, Rr
+    "STS"   :  ("1001001rrrrr0000", 3), # STS m, Rr
+    "POP"   :  ("1001000ddddd1111", 2), # POP Rd
+    "PUSH"  :  ("1001001rrrrr1111", 2)  # PUSH Rd
 }
 
 # Binary string to integer
@@ -200,6 +224,10 @@ def compute_result(instruction, opA, opB, status):
         temp = res[:4]
         res[:4] = res[4:]
         res[4:] = temp
+    if (instruction == "MOV"):
+        res = int_to_binary(opB, 8)
+    if (instruction == "LDI"):
+        res = int_to_binary(opB, 8)
 
     HF = [0] * 7
     VF = [0] * 7
@@ -277,6 +305,11 @@ def compute_instruction(instruction, opA, opB):
     # Start with skeleton
     opcode = list(instructions[instruction][0])
 
+    # If the instruction has a source register and no destination, then we should
+    # have opB contain the input that is in opA
+    if ('r' in opcode and ('d' not in opcode and 'q' not in opcode)):
+        opB = opA
+
     # Get operand A if it exists
     opAList = []
     if (opA != None):
@@ -291,7 +324,12 @@ def compute_instruction(instruction, opA, opB):
 
     # Fill bits in skeleton
     opAChars = ['d', 's']
-    opBChars = ['r', 'b', 'K']
+    opBChars = ['b', 'K', 'k', 'q']
+    if ('q' in opcode):
+        opAChars.append('r')
+    else:
+        opBChars.append('r')
+
     for i in range(len(opcode)-1, -1, -1):
         if (opcode[i] in opAChars):
             opcode[i] = str(opAList[idxA])

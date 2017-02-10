@@ -69,6 +69,7 @@ def generate(fIn, fOut):
         expB = "".join(expB)
 
         vector = [ opcode, ",", nextRegIn, ",", expA, ",", expB, "\n" ]
+
         # Need two lines if two clock instruction
         if (vals[0] in twoClocks):
             if (vals[0] == "MUL"):

@@ -19,18 +19,12 @@ use ieee.numeric_std.all;
 -- applicable.
 --
 -- Registers:
---      IR : std_logic_vector(15 downto 0)
---          The instruction register
 --      IP : std_logic_vector(15 downto 0)
 --          The instruction pointer
---      SP : std_logic_vector(15 downto 0)
---          The stack pointer
 --
 -- Inputs:
 --      clk : std_logic
 --          The global clock
---      reset : std_logic
---          Active low global reset signal
 --      instruction : instruction_t
 --          The instruction from memory that is to be decoded.
 --
@@ -76,8 +70,6 @@ use ieee.numeric_std.all;
 --      ENRegB : std_logic
 --          Enable signal for register B in registers component.  For more info on
 --          register B, refer to registers component documentation.
---      ENRegRd : std_logic
---          Enables (active low) reading of registers
 --      ENRegWr : std_logic
 --          Enables (active low) writing to registers
 --
@@ -95,18 +87,19 @@ use ieee.numeric_std.all;
 entity ControlUnit is
     port (
         clk         : in  std_logic;                    -- system clock
-        reset       : in  std_logic;                    -- system reset
 
         instruction : in  std_logic_vector(15 downto 0);-- instruction
 
         BLD         : out std_logic;                    -- '1' when BLD
         BST         : out std_logic;                    -- '1' when BST
 
+        -- Status control
         sel         : out std_logic_vector(2 downto 0); -- selects flag index
         flagMask    : out std_logic_vector(7 downto 0); -- status bits affected
         clkIdx      : out natural range 0 to 3;         -- clock counter
         ENRes       : out std_logic;                    -- set SREG to R
 
+        -- ALU control
         immed       : out std_logic_vector(7 downto 0); -- immediate value
         ENALU       : out std_logic_vector(1 downto 0); -- ALU operation type
         ENImmed     : out std_logic;                    -- enable immed
@@ -114,14 +107,25 @@ entity ControlUnit is
         ENInvOp     : out std_logic;                    -- negate operand in ALU
         ENInvRes    : out std_logic;                    -- negate result in ALU
 
+        -- Registers control
         regSelA     : out std_logic_vector(4 downto 0); -- register A select
         regSelB     : out std_logic_vector(4 downto 0); -- register B select
         ENMul       : out std_logic;                    -- write to registers 0 and 1
         ENSwap      : out std_logic;                    -- SWAP instruction
         ENRegA      : out std_logic;                    -- enable register A
         ENRegB      : out std_logic;                    -- enable register B
-        ENRegRd     : out std_logic;                    -- enable register reading
-        ENRegWr     : out std_logic                     -- enable register writing
+        ENRegWr     : out std_logic;                    -- enable register writing
+        sourceSel   : out std_logic_vector(1 downto 0); -- used to choose data input
+        wordReg     : out std_logic_vector(2 downto 0); -- used to choose X Y Z regs
+
+        -- Data memory control
+        memRW       : out std_logic;                    -- read/write to memory
+        addrSel     : out std_logic_vector(1 downto 0); -- for address mux
+        addBefore   : out std_logic;                    -- dictates when to add to addr
+        decrement   : out std_logic;                    -- when low, decrementing
+
+        -- Stack pointer control
+        SPWr        : out std_logic                     -- write to stack ptr
     );
 end ControlUnit;
 
@@ -175,9 +179,6 @@ architecture decoder of ControlUnit is
 
  --  Load and Store Opcodes
 
-    constant OpELPM   :  instruction_t := "1001010111011000";   -- ELPM
-    constant OpELPMZ  :  instruction_t := "1001000-----0110";   -- ELPM Rd, Z
-    constant OpELPMZI :  instruction_t := "1001000-----0111";   -- ELPM Rd, Z+
     constant OpLDX    :  instruction_t := "1001000-----1100";   -- LD Rd, X
     constant OpLDXI   :  instruction_t := "1001000-----1101";   -- LD Rd, X+
     constant OpLDXD   :  instruction_t := "1001000-----1110";   -- LD Rd, -X
@@ -189,20 +190,15 @@ architecture decoder of ControlUnit is
     constant OpLDDZ   :  instruction_t := "10-0--0-----0---";   -- LDD Rd, Z + q
     constant OpLDI    :  instruction_t := "1110------------";   -- LDI Rd, k
     constant OpLDS    :  instruction_t := "1001000-----0000";   -- LDS Rd, m
-    constant OpLPM    :  instruction_t := "1001010111001000";   -- LPM
-    constant OpLPMZ   :  instruction_t := "1001000-----0100";   -- LPM Rd, Z
-    constant OpLPMZI  :  instruction_t := "1001000-----0101";   -- LPM Rd, Z+
     constant OpMOV    :  instruction_t := "001011----------";   -- MOV Rd, Rr
-    constant OpMOVW   :  instruction_t := "00000001--------";   -- MOVW Rd, Rr
-    constant OpSPM    :  instruction_t := "1001010111101000";   -- SPM
     constant OpSTX    :  instruction_t := "1001001-----1100";   -- ST X, Rr
     constant OpSTXI   :  instruction_t := "1001001-----1101";   -- ST X+, Rr
     constant OpSTXD   :  instruction_t := "1001001-----1110";   -- ST -X, Rr
     constant OpSTYI   :  instruction_t := "1001001-----1001";   -- ST Y+, Rr
     constant OpSTYD   :  instruction_t := "1001001-----1010";   -- ST -Y, Rr
-    constant OpSTDY   :  instruction_t := "10-0--1-----1---";   -- STD Y + q, Rr
     constant OpSTZI   :  instruction_t := "1001001-----0001";   -- ST Z+, Rr
     constant OpSTZD   :  instruction_t := "1001001-----0010";   -- ST -Z, Rr
+    constant OpSTDY   :  instruction_t := "10-0--1-----1---";   -- STD Y + q, Rr
     constant OpSTDZ   :  instruction_t := "10-0--1-----0---";   -- STD Z + q, Rr
     constant OpSTS    :  instruction_t := "1001001-----0000";   -- STS m, Rr
 
@@ -269,7 +265,12 @@ begin
         end if;
     end process counter;
 
-    decode: process (reset, instruction, clkCnt) is
+    --
+    -- decode process
+    --
+    -- Decodes the signal and sends control signals accordingly
+    --
+    decode: process (instruction, clkCnt) is
     begin
         -- Output the clock count in this instruction as the clock index
         clkIdx <= clkCnt;
@@ -298,8 +299,8 @@ begin
         ENRegB   <= '1';            -- By default, don't propagate data to output
         ENMul    <= '1';            -- Only MUL enables this
         ENSwap   <= '1';            -- Only SWAP enables this
-        ENRegRd  <= '1';            -- Don't access registers by default
         ENRegWr  <= '1';            -- Don't access registers by default
+        sourceSel<= "00";           -- Choose data from ALU
 
         numClks  <= 0;              -- Assume this is a 1-clock instruction
 
@@ -323,7 +324,6 @@ begin
             regSelA <= instruction(8 downto 4);
             regSelB <= instruction(9) & instruction(3 downto 0);
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -338,7 +338,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -385,7 +384,6 @@ begin
 
             -- We both read from and write to registers in this instruction, and on
             -- both clocks
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S flags
@@ -403,7 +401,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -424,7 +421,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -445,7 +441,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S flags
@@ -539,7 +534,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S flags
@@ -561,7 +555,6 @@ begin
 
             -- We only read registers on this
             ENRegA <= '0';
-            ENRegRd <= '0';
 
             -- Affects C Z N V S H flags
             flagMask <= "11000000";
@@ -584,7 +577,6 @@ begin
 
             -- We only read registers on compare
             ENRegA <= '0';
-            ENRegRd <= '0';
 
             -- Affects C Z N V S H flags
             flagMask <= "11000000";
@@ -607,7 +599,6 @@ begin
 
             -- We only read on compares
             ENRegA <= '0';
-            ENRegRd <= '0';
 
             -- Affects C Z N V S H flags
             flagMask <= "11000000";
@@ -630,7 +621,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -651,7 +641,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -672,7 +661,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -688,7 +676,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S flags
@@ -732,7 +719,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -752,7 +738,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -773,7 +758,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects Z N V S flags
@@ -794,7 +778,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S flags
@@ -817,7 +800,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -841,7 +823,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -894,7 +875,6 @@ begin
             ENRegA <= '0';
 
             -- We both read from and write to registers on both clocks
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S flags
@@ -916,7 +896,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -939,7 +918,6 @@ begin
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
-            ENRegRd <= '0';
             ENRegWr <= '0';
 
             -- Affects C Z N V S H flags
@@ -954,6 +932,639 @@ begin
             regSelA <= instruction(8 downto 4);
 
             -- Affects no flags
+        end if;
+
+        -----------------------------------------------------------------------------
+        --
+        -- Load data instruction decoding
+        --
+        -----------------------------------------------------------------------------
+
+        -- Data memory control
+        decrement <= '1';               -- don't decrement
+        memRW <= '1';                   -- arbitrary, read/write to memory
+        addrSel <= "00";                -- address mux: 0 = none, 1 = regs
+                                        --              2 = SP, 3 = instruction
+        wordReg <= "000";               -- 1 = X, 2 = Y, 3 = Z, 0 = none
+                                        -- bit 2 is 1 when writing new addr
+        addBefore <= '0';               -- assume the address we want includes
+                                        -- the addition of immed (which is 0
+                                        -- by default)
+
+        -- Stack pointer control
+        SPWr <= '1';                    -- active low write to stack ptr
+
+        -- LD Rd, X
+        if (std_match(instruction, OpLDX))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The destination register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select X word register and don't write new address to it after
+            wordReg <= "001";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, X+
+        if (std_match(instruction, OpLDXI)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select X word register and write new address to it after
+            wordReg <= "101";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Increment after
+            immed(0) <= '1';
+            addBefore <= '1';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, -X
+        if (std_match(instruction, OpLDXD)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select X word register and write new address to it after
+            wordReg <= "101";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Decrement before
+            decrement <= '0';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, Y+
+        if (std_match(instruction, OpLDYI)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select Y word register and write new addr to it after
+            wordReg <= "110";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Increment after
+            immed(0) <= '1';
+            addBefore <= '1';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, -Y
+        if (std_match(instruction, OpLDYD)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select Y word register and write new addr to it after
+            wordReg <= "110";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Decrement before
+            decrement <= '0';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LDD Rd, Y + q
+        if (std_match(instruction, OpLDDY)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- Use the immediate value as address offset (high bits are 0)
+            immed(5 downto 0) <= instruction(13) & instruction(11 downto 10) &
+                                 instruction(2 downto 0);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select Y word register and don't write new addr to it after
+            wordReg <= "010";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, Z+
+        if (std_match(instruction, OpLDZI)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select Z word register and write new addr to it after
+            wordReg <= "111";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Increment after
+            immed(0) <= '1';
+            addBefore <= '1';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, -Z
+        if (std_match(instruction, OpLDZD)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Select Z word register and write new addr to it after
+            wordReg <= "111";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Decrement before
+            decrement <= '0';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LDD Rd, Z + q
+        if (std_match(instruction, OpLDDZ)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- Use the immediate value as address offset (high bits are 0)
+            immed(5 downto 0) <= instruction(13) & instruction(11 downto 10) &
+                                 instruction(2 downto 0);
+
+            -- Writing to register on second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select Z word register and don't write new addr to it after
+            wordReg <= "011";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LDI Rd, k
+        if (std_match(instruction, OpLDI))  then
+            -- The register is implied by bits 4-7
+            regSelA <= "0" & instruction(7 downto 4);
+
+            -- Writing to register A
+            ENRegWr <= '0';
+            ENRegA <= '0';
+
+            -- Put k into immediate value
+            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+
+            -- The data source for registers is from the immediate
+            sourceSel <= "10";
+        end if;
+
+        -- LDS Rd, m
+        if (std_match(instruction, OpLDS))  then
+            -- This is a 3-clock instruction
+            numClks <= 2;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on third clock
+            if (clkCnt = 2) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Using address from instruction
+            addrSel <= "11";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- MOV Rd, Rr
+        if (std_match(instruction, OpMOV))  then
+            -- Rd in bits 8-4, Rr in bits 9, 3-0
+            regSelA <= instruction(8 downto 4);
+            regSelB <= instruction(9) & instruction(3 downto 0);
+
+            -- Send enable signals that will tell registers to move what's in register
+            -- B into register A
+            ENRegB <= '0';
+            ENRegWr <= '0';
+        end if;
+
+        -- ST X, Rr
+        if (std_match(instruction, OpSTX))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select X word register and don't write to it after
+            wordReg <= "001";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- ST X+, Rr
+        if (std_match(instruction, OpSTXI)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing new value to word register
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+            end if;
+
+            -- Select X word register and write to it after
+            wordReg <= "101";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Increment after
+            immed(0) <= '1';
+            addBefore <= '1';
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- ST -X, Rr
+        if (std_match(instruction, OpSTXD)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing new value to word register
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+            end if;
+
+            -- Select X word register and write to it after
+            wordReg <= "101";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Decrement before
+            decrement <= '0';
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- ST Y+, Rr
+        if (std_match(instruction, OpSTYI)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing new value to word register
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+            end if;
+
+            -- Select Y word register and write to it after
+            wordReg <= "110";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Increment after
+            immed(0) <= '1';
+            addBefore <= '1';
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- ST -Y, Rr
+        if (std_match(instruction, OpSTYD)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing new value to word register
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+            end if;
+
+            -- Select Y word register and write to it after
+            wordReg <= "110";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Decrement before
+            decrement <= '0';
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- ST Z+, Rr
+        if (std_match(instruction, OpSTZI)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing new value to word register
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+            end if;
+
+            -- Select Z word register and write new addr to it after
+            wordReg <= "111";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Increment after
+            immed(0) <= '1';
+            addBefore <= '1';
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- ST -Z, Rr
+        if (std_match(instruction, OpSTZD)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing new value to word register
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+            end if;
+
+            -- Select Z word register and write new addr to it after
+            wordReg <= "111";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Decrement before
+            decrement <= '0';
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- STD Y + q, Rr
+        if (std_match(instruction, OpSTDY)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- Use the immediate value as address offset (high bits are 0)
+            immed(5 downto 0) <= instruction(13) & instruction(11 downto 10) &
+                                 instruction(2 downto 0);
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select Y word register and don't write to it after
+            wordReg <= "010";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- STD Z + q, Rr
+        if (std_match(instruction, OpSTDZ)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- Use the immediate value as address offset (high bits are 0)
+            immed(5 downto 0) <= instruction(13) & instruction(11 downto 10) &
+                                 instruction(2 downto 0);
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select Z word register and don't write new addr to it after
+            wordReg <= "011";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+        -- STS m, Rr
+        if (std_match(instruction, OpSTS))  then
+            -- This is a 3-clock instruction
+            numClks <= 2;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Using address from instruction
+            addrSel <= "11";
+
+            -- Writing to memory here.
+            memRW <= '0';
+        end if;
+
+
+        -----------------------------------------------------------------------------
+        --
+        -- Push/pop instruction decoding
+        --
+        -----------------------------------------------------------------------------
+
+        --  Push and Pop instructions
+        -- POP Rd
+        if (std_match(instruction, OpPOP))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on second clock, as well as new stack pointer
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+
+                SPWr <= '0';
+            end if;
+
+            -- Using address from stack pointer
+            addrSel <= "10";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Increment before
+            immed(0) <= '1';
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- PUSH Rd
+        if (std_match(instruction, OpPUSH)) then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing over stack pointer value
+            if (clkCnt = 1) then
+                SPWr <= '0';
+            end if;
+
+            -- Using memory from stack pointer
+            addrSel <= "10";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Decrement after
+            decrement <= '0';
+            addBefore <= '1';
+
+            -- Writing to stack here.
+            memRW <= '0';
         end if;
 
     end process decode;
