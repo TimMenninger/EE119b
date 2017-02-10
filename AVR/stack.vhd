@@ -12,8 +12,20 @@ use ieee.std_logic_unsigned.all;
 -- on the dataIn.
 --
 -- Inputs:
+--      clk: std_logic;
+--          System clock
+--      reset: std_logic
+--          Active low reset.  When active, this resets the stack pointer to all 1's
+--      dataIn: std_logic_vector(15 downto 0)
+--          The data input to overwrite the stack pointer.
+--      ENWr: std_logic
+--          Active low.  When low, the stack pointer will latch what is on the dataIn
+--          line.
 --
 -- Outputs:
+--      SP : std_logic_vector(15 downto 0)
+--          The stack pointer.  This points to the first unused block of memory in
+--          stack space.
 --
 -- Revision History:
 --      08 Feb 17   Tim Menninger   Created

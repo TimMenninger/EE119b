@@ -18,7 +18,20 @@ use ieee.numeric_std.all;
 --      clkIdx : natural range 0 to 3
 --          The number clock rising edges since the beginning of the instruction
 --      ALUIn : std_logic_vector(7 downto 0)
---          Data written to a register in the appropriate scenarios
+--          Data written to a register in the appropriate scenarios.  This comes
+--          from the ALU and will be muxed
+--      memIn : std_logic_vector(7 downto 0)
+--          Data written to a register from memory.  This will be muxed
+--      immedIn : std_logic_vector(7 downto 0)
+--          An immediate value to be written to a register.  It will be muxed
+--      sourceSel : std_logic_vector(1 downto 0)
+--          The mux selector for which data input to write to register
+--      wordRegIn : std_logic_vector(15 downto 0)
+--          An input to word registers.  This will either write to registers
+--          27&26 (X), 29&23 (Y) or 31&31 (Z)
+--      wordRegSel : std_logic_vector(2 downto 0)
+--          The selector that indicates which word register we are accessing.
+--          Using 1 accesses X, using 2 accesses Y and using 3 accesses Z
 --      BLD : std_logic
 --          '1' when BLD executing
 --      sel : std_logic_vector(2 downto 0)
@@ -46,14 +59,22 @@ use ieee.numeric_std.all;
 --          above.
 --
 -- Outputs:
---      dataOutA : unsigned(7 downto 0)
+--      Rdb : std_logic
+--          This is the b'th bit of the destination register, used by status
+--      dataOutA : std_logic_vectr(7 downto 0)
 --          Reflects register A when RW indicates read.
---      dataOutB : unsigned(7 downto 0)
+--      dataOutB : std_logic_vectr(7 downto 0)
 --          Reflects register B when RW indicates read.  This should only be used
 --          when accessing a double register, and would be the high byte.
+--      wordRegOut : std_logic_vector(15 downto 0)
+--          This contains a word register.  It could either be X, Y or Z, which are
+--          regs(27) & regs(26), regs(29) & regs(28), or regs(31) & regs(30)
+--          respectively
 --
 -- Revision History:
---      26 Jan 17  Tim Menninger     Entity declaration
+--      26 Jan 17  Tim Menninger    Entity declaration
+--      01 Feb 17  Tim Menninger    Created for general register accesses
+--      09 Feb 17  Tim Menninger    Edited to include memory addressing, loads and stores
 --
 -----------------------------------------------------------------------------------------
 

@@ -28,4 +28,4 @@ regtest:
 	python ../fix_vcd.py $(REG_TB_FILE).vcd
 
 clean:
-	rm -rf *.o *.cf *.ucf *.lst *.vcd $(ALU_TB_FILE) $(REG_TB_FILE) testcases/__pycache__
+	rm -rf *.o *.cf *.ucf *.lst *.vcd $(MEM_TB_FILE) $(ALU_TB_FILE) $(REG_TB_FILE) testcases/__pycache__

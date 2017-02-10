@@ -12,8 +12,47 @@ use  ieee.std_logic_1164.all;
 -- is on high impedance.
 --
 -- Inputs:
+--      clk : std_logic
+--          System clock
+--      clkIdx : natural range 0 to 3
+--          The number of clocks since the beginning of the instruction
+--      regAddr : std_logic_vector(15 downto 0)
+--          The address from the register unit, will be muxed
+--      SPAddr : std_logic_vector(15 downto 0)
+--          The address from the stack pointer, will be muxed
+--      IRAddr : std_logic_vector(15 downto 0)
+--          The address from the instruction, will be muxed
+--      immed : std_logic_vector(5 downto 0)
+--          An immediate value that will be added to the address either before
+--          or after accessing memory
+--      decrement : std_logic
+--          When low, decrement the address instead of adding the immediate
+--      addrSel : std_logic_vector(1 downto 0)
+--          The selector for which address should be used to access memory
+--      RW : std_logic
+--          Read/not write to memory
+--      addBefore : std_logic
+--          When low, the immediate value or decrement should occur before the
+--          memory access
+--      dataIn : std_logic_vector(7 downto 0)
+--          The data input to be written to memory if applicable.
+--      DataDB : std_logic_vector(7 downto 0)
+--          The data bus to memory.  Note that this is an INOUT and can be hi-Z
 --
 -- Outputs:
+--      addrOut: out std_logic_vector(15 downto 0)
+--          The output address.  This is used by other entities when the address
+--          source needs an updated address, e.g., the stack pointer
+--      DataAB: out std_logic_vector(15 downto 0)
+--          The address bus to external memory
+--      DataDB: out std_logic_vector(7 downto 0)
+--          The data bus to/form external memory
+--      DataRd: out std_logic
+--          Active low read signal to external memory.  This is to go low on the last
+--          clock of an instruction that reads when the clock is low.
+--      DataWr: out std_logic
+--          Active low write signal to external memory.  This is to go low on the
+--          low portion of the last clock of the instruction.
 --
 -- Revision History:
 --      26 Jan 17  Tim Menninger     Entity declaration

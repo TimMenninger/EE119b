@@ -60,33 +60,7 @@ end  TEST_MEM;
 
 architecture toplevel of TEST_MEM is
 
-    -- ALU component we are testing
-    component ALU is
-        port (
-            opA         : in  std_logic_vector(7 downto 0); -- operand 1
-            opB         : in  std_logic_vector(7 downto 0); -- operand 2
-            immed       : in  std_logic_vector(7 downto 0); -- immediate value
-            SREG        : in  std_logic_vector(7 downto 0); -- flags
-
-            ENALU       : in  std_logic_vector(1 downto 0); -- operation type
-            ENCarry     : in  std_logic;                    -- opcode uses carry
-            ENImmed     : in  std_logic;                    -- opcode uses immed
-            ENInvOp     : in  std_logic;                    -- negate operand
-            ENInvRes    : in  std_logic;                    -- negate result
-
-            ENMul       : in  std_logic;                    -- active (low) when MUL
-            clkIdx      : in  natural range 0 to 3;         -- num clks since instrctn
-
-            Rd0         : out std_logic;                    -- bit 0 of operand A
-            Rd3         : out std_logic;                    -- bit 3 of operand A
-            Rr3         : out std_logic;                    -- bit 3 of operand B
-            Rd7         : out std_logic;                    -- bit 7 of operand A
-            Rr7         : out std_logic;                    -- bit 7 of operand B
-
-            result      : out std_logic_vector(7 downto 0)  -- computed result
-        );
-    end component;
-
+    -- Registers that we sometimes write to
     component Registers is
         port (
             clk         : in  std_logic;                    -- system clk
@@ -116,30 +90,6 @@ architecture toplevel of TEST_MEM is
             dataOutA    : out std_logic_vector(7 downto 0); -- low byte of output
             dataOutB    : out std_logic_vector(7 downto 0); -- high byte of output
             wordRegOut  : out std_logic_vector(15 downto 0) -- word register output
-        );
-    end component;
-
-    -- The status register is updated by the ALU
-    component Status is
-        port (
-            clk         : in  std_logic;                            -- system clk
-
-            R           : in  std_logic_vector(7 downto 0);         -- result from ALU
-            Rd0         : in  std_logic;                            -- bit 0 of operand A
-            Rd3         : in  std_logic;                            -- bit 3 of operand A
-            Rr3         : in  std_logic;                            -- bit 3 of operand B
-            Rd7         : in  std_logic;                            -- bit 7 of operand A
-            Rr7         : in  std_logic;                            -- bit 7 of operand B
-            Rdb         : in  std_logic;                            -- Bit to set T to
-
-            BST         : in  std_logic;                            -- '1' when in BST
-            sel         : in  std_logic_vector(2 downto 0);         -- selects flag index
-            mask        : in  std_logic_vector(7 downto 0);         -- masks unaffected flags
-            clkIdx      : in  natural range 0 to 3;                 -- clks since instrctn
-            ENRes       : in  std_logic;                            -- set SREG to R
-
-            TF          : out std_logic;                            -- always sent to regs
-            SREG        : out std_logic_vector(7 downto 0)          -- status register
         );
     end component;
 
@@ -225,24 +175,8 @@ architecture toplevel of TEST_MEM is
         );
     end component;
 
-    -- All the variables we need
+    -- All the variables we need, named to match the comments in component declarations
     signal immed    : std_logic_vector(7 downto 0)  := "00000000";
-    signal SREG     : std_logic_vector(7 downto 0)  := "00000000";
-
-    signal ENALU    : std_logic_vector(1 downto 0)  := "00";
-    signal ENCarry  : std_logic                     := '0';
-    signal ENImmed  : std_logic                     := '0';
-    signal ENInvOp  : std_logic                     := '0';
-    signal ENInvRes : std_logic                     := '0';
-
-    signal Rd0      : std_logic                     := '0';
-    signal Rd3      : std_logic                     := '0';
-    signal Rr3      : std_logic                     := '0';
-    signal Rd7      : std_logic                     := '0';
-    signal Rr7      : std_logic                     := '0';
-
-    signal R        : std_logic_vector(7 downto 0)  := "00000000";
-    signal Rdb      : std_logic                     := '0';
 
     signal sel      : std_logic_vector(2 downto 0)  := "000";
     signal flagMask : std_logic_vector(7 downto 0)  := "00000000";
@@ -284,37 +218,12 @@ architecture toplevel of TEST_MEM is
 
 begin
 
-    ALUUUT : ALU
-        port map (
-            dataOutA,
-            dataOutB,
-            immed,
-            SREG,
-
-            ENALU,
-            ENCarry,
-            ENImmed,
-            ENInvOp,
-            ENInvRes,
-
-            ENMul,
-            clkIdx,
-
-            Rd0,
-            Rd3,
-            Rr3,
-            Rd7,
-            Rr7,
-
-            R
-        );
-
     RegistersUUT : Registers
         port map (
             clk,
             clkIdx,
 
-            R,
+            "00000000", -- What would otherwise be result from ALU
             DataDB,
             immed,
             sourceSel,
@@ -327,38 +236,16 @@ begin
 
             regSelA,
             regSelB,
-            ENMul,
-            ENSwap,
+            '1',
+            '1',
             ENRegA,
             ENRegB,
             ENRegWr,
 
-            Rdb,
+            open,
             dataOutA,
             dataOutB,
             wordRegOut
-        );
-
-    StatusUUT : Status
-        port map (
-            clk,
-
-            R,
-            Rd0,
-            Rd3,
-            Rr3,
-            Rd7,
-            Rr7,
-            Rdb,
-
-            BST,
-            sel,
-            flagMask,
-            clkIdx,
-            ENRes,
-
-            TF,
-            SREG
         );
 
     ControlUUT : ControlUnit
@@ -376,16 +263,16 @@ begin
             ENRes,
 
             immed,
-            ENALU,
-            ENImmed,
-            ENCarry,
-            ENInvOp,
-            ENInvRes,
+            open,
+            open,
+            open,
+            open,
+            open,
 
             regSelA,
             regSelB,
-            ENMul,
-            ENSwap,
+            open,
+            open,
             ENRegA,
             ENRegB,
             ENRegWr,
@@ -586,6 +473,18 @@ begin
         file_close(MEM_vectors);
 
         wait for 100 ns;
+
+        -- Reset, then check that the stack pointer is all 1's
+        Reset <= '0';
+        wait for 10 ns;
+        Reset <= '1';
+        wait for 40 ns;
+        IR <= "1001001000001111";
+        wait for 45 ns;
+        assert (std_match(DataAB, "1111111111111111"))
+            report  "address bus incorrect"
+            severity  ERROR;
+
 
         -- Done simulation
         END_SIM <= TRUE;
