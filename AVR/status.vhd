@@ -1,8 +1,3 @@
--- bring in the necessary packages
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
-
 -----------------------------------------------------------------------------------------
 --
 -- status.vhd
@@ -23,7 +18,7 @@ use ieee.std_logic_unsigned.all;
 -- Inputs:
 --      clk : std_logic
 --          System clock
---      R : std_logic_vector(7 downto 0)
+--      R : data_t
 --          Result computed from ALU, used in computing flag
 --      Rd0 : std_logic
 --          Bit 0 of operand A of ALU operation
@@ -42,20 +37,28 @@ use ieee.std_logic_unsigned.all;
 --      sel : std_logic_vector(2 downto 0)
 --          Index to the array of flag computations used to propagate flag to
 --          output
---      mask : std_logic_vector(7 downto 0)
+--      mask : status_t
 --          Masks for flags that shouldn't be changing on this operation.  Locations
 --          of affected flags should have zeroes.
 --
 -- Outputs:
 --      TF : std_logic
 --          T flag for BLD instruction
---      SREG : std_logic_vector(7 downto 0)
+--      SREG : status_t
 --          Status register
 --
 -- Revision History:
 --      31 Jan 17   Tim Menninger   Created
 --
 -----------------------------------------------------------------------------------------
+
+-- bring in the necessary packages
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+library common;
+use common.common.all;
 
 --
 -- entity status
@@ -64,24 +67,24 @@ use ieee.std_logic_unsigned.all;
 --
 entity Status is
     port (
-        clk         : in  std_logic;                            -- system clock
+        clk         : in  std_logic;        -- system clock
 
-        R           : in  std_logic_vector(7 downto 0);         -- result from ALU
-        Rd0         : in  std_logic;                            -- bit 0 of operand A
-        Rd3         : in  std_logic;                            -- bit 3 of operand A
-        Rr3         : in  std_logic;                            -- bit 3 of operand B
-        Rd7         : in  std_logic;                            -- bit 7 of operand A
-        Rr7         : in  std_logic;                            -- bit 7 of operand B
-        Rdb         : in  std_logic;                            -- Bit to set T to
+        R           : in  data_t;           -- result from ALU
+        Rd0         : in  std_logic;        -- bit 0 of operand A
+        Rd3         : in  std_logic;        -- bit 3 of operand A
+        Rr3         : in  std_logic;        -- bit 3 of operand B
+        Rd7         : in  std_logic;        -- bit 7 of operand A
+        Rr7         : in  std_logic;        -- bit 7 of operand B
+        Rdb         : in  std_logic;        -- Bit to set T to
 
-        BST         : in  std_logic;                            -- 1 when BST instruction
-        sel         : in  std_logic_vector(2 downto 0);         -- selects flag index
-        mask        : in  std_logic_vector(7 downto 0);         -- masks unaffected flags
-        clkIdx      : in  natural range 0 to 3;                 -- clocks since instrctn
-        ENRes       : in  std_logic;                            -- set SREG to R
+        BST         : in  std_logic;        -- 1 when BST instruction
+        sel         : in  flagSelector_t;   -- selects flag index
+        mask        : in  status_t;         -- masks unaffected flags
+        clkIdx      : in  clockIndex_t;     -- clocks since instrctn
+        ENRes       : in  std_logic;        -- set SREG to R
 
-        TF          : out std_logic;                            -- always sent to regs
-        SREG        : out std_logic_vector(7 downto 0)          -- status register
+        TF          : out std_logic;        -- always sent to regs
+        SREG        : out status_t          -- status register
     );
 end Status;
 
@@ -101,7 +104,8 @@ architecture update of Status is
     constant Z : natural := 1;
     constant C : natural := 0;
 
-    -- Flags that we will compute on the run
+    -- Flags that we will compute on the run.  The arrays are all the possible
+    -- values from whcih the appropriate one is selected based on the instruction
     signal HF : std_logic_vector(7 downto 0)        := "00000000";
     signal VF : std_logic_vector(7 downto 0)        := "00000000";
     signal NF : std_logic                           := '0';
@@ -109,7 +113,7 @@ architecture update of Status is
     signal CF : std_logic_vector(7 downto 0)        := "00000000";
 
     -- Register the status flags
-    signal status : std_logic_vector(7 downto 0)    := "00000000";
+    signal status : status_t    := "00000000";
 
 begin
 

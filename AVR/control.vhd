@@ -1,12 +1,3 @@
--- bring in the necessary packages
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
-use ieee.numeric_std.all;
-
-library opcodes;
-use opcodes.opcodes.all;
-
 -----------------------------------------------------------------------------------------
 --
 -- control.vhd
@@ -28,7 +19,7 @@ use opcodes.opcodes.all;
 -- Inputs:
 --      clk : std_logic
 --          The global clock
---      instruction : opcode_word
+--      instruction : instruction_t
 --          The instruction from memory that is to be decoded.
 --
 -- Outputs:
@@ -36,20 +27,20 @@ use opcodes.opcodes.all;
 --          '1' when BLD instruction occurring.
 --      BST : std_logic
 --          '1' when BST instruction occurring.
---      sel : std_logic_vector(2 downto 0)
+--      sel : flagSelector_t
 --          Selects flag index and register index for bit setting
---      flagMask : std_logic_vector(7 downto 0)
+--      flagMask : status_t
 --          A mask showing which bits in the status register should be affected by the
 --          instruction.  Affected bits are represented by '0'
---      ENALU : std_logic_vector(1 downto 0)
+--      ENALU : ALUSelector_t
 --          Describes type of operation.
---      regSelA : std_logic_vector(4 downto 0)
+--      regSelA : regSelector_t
 --          Represents which of the 32 registers to use as register A.  For more info
 --          on register A, refer to registers component documentation.
---      regSelB : std_logic_vector(4 downto 0)
+--      regSelB : regSelector_t
 --          Represents which of the 32 registers to use as register B.  For more info
 --          on register B, refer to registers component documentation.
---      immed : std_logic_vector(7 downto 0)
+--      immed : data_t
 --          The immediate value to use if the opcode specifies one.
 --      ENCarry : std_logic
 --          Tells the ALU that the operation uses a carry.  This is only relevant on
@@ -73,9 +64,14 @@ use opcodes.opcodes.all;
 --          register B, refer to registers component documentation.
 --      ENRegWr : std_logic
 --          Enables (active low) writing to registers
+--      sourceSel : regInSelector_t
+--          Used to choose which data input to pay attention to when writing to
+--          registers
+--      wordReg : wordSelector_t
+--          Used to choose which word register we are accessing, X Y or Z
 --      memRW : std_logic
 --          Read / not Write signal to memory, denotes if writing to actual memory
---      addrSel : std_logic_vector(1 downto 0)
+--      addrSel : addrSelector_t
 --          Selects which address the memory unit should pay attention to
 --      addBefore : std_logic
 --          When low, tells the memory unit to add the offset to the address before
@@ -93,6 +89,18 @@ use opcodes.opcodes.all;
 --
 -----------------------------------------------------------------------------------------
 
+-- bring in the necessary packages
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+library opcodes;
+use opcodes.opcodes.all;
+
+library common;
+use common.common.all;
+
 --
 -- entity ControlUnit
 --
@@ -101,43 +109,43 @@ use opcodes.opcodes.all;
 --
 entity ControlUnit is
     port (
-        clk         : in  std_logic;                    -- system clock
+        clk         : in  std_logic;        -- system clock
 
-        instruction : in  opcode_word;                  -- instruction
+        instruction : in  instruction_t;    -- instruction
 
-        BLD         : out std_logic;                    -- '1' when BLD
-        BST         : out std_logic;                    -- '1' when BST
+        BLD         : out std_logic;        -- '1' when BLD
+        BST         : out std_logic;        -- '1' when BST
 
         -- Status control
-        sel         : out std_logic_vector(2 downto 0); -- selects flag index
-        flagMask    : out std_logic_vector(7 downto 0); -- status bits affected
-        clkIdx      : out natural range 0 to 3;         -- clock counter
-        ENRes       : out std_logic;                    -- set SREG to R
+        sel         : out flagSelector_t;   -- selects flag index
+        flagMask    : out status_t;         -- status bits affected
+        clkIdx      : out clockIndex_t;     -- clock counter
+        ENRes       : out std_logic;        -- set SREG to R
 
         -- ALU control
-        immed       : out std_logic_vector(7 downto 0); -- immediate value
-        ENALU       : out std_logic_vector(1 downto 0); -- ALU operation type
-        ENImmed     : out std_logic;                    -- enable immed
-        ENCarry     : out std_logic;                    -- enable carry
-        ENInvOp     : out std_logic;                    -- negate operand in ALU
-        ENInvRes    : out std_logic;                    -- negate result in ALU
+        immed       : out data_t;           -- immediate value
+        ENALU       : out ALUSelector_t;    -- ALU operation type
+        ENImmed     : out std_logic;        -- enable immed
+        ENCarry     : out std_logic;        -- enable carry
+        ENInvOp     : out std_logic;        -- negate operand in ALU
+        ENInvRes    : out std_logic;        -- negate result in ALU
 
         -- Registers control
-        regSelA     : out std_logic_vector(4 downto 0); -- register A select
-        regSelB     : out std_logic_vector(4 downto 0); -- register B select
-        ENMul       : out std_logic;                    -- write to registers 0 and 1
-        ENSwap      : out std_logic;                    -- SWAP instruction
-        ENRegA      : out std_logic;                    -- enable register A
-        ENRegB      : out std_logic;                    -- enable register B
-        ENRegWr     : out std_logic;                    -- enable register writing
-        sourceSel   : out std_logic_vector(1 downto 0); -- used to choose data input
-        wordReg     : out std_logic_vector(2 downto 0); -- used to choose X Y Z regs
+        regSelA     : out regSelector_t;    -- register A select
+        regSelB     : out regSelector_t;    -- register B select
+        ENMul       : out std_logic;        -- write to registers 0 and 1
+        ENSwap      : out std_logic;        -- SWAP instruction
+        ENRegA      : out std_logic;        -- enable register A
+        ENRegB      : out std_logic;        -- enable register B
+        ENRegWr     : out std_logic;        -- enable register writing
+        sourceSel   : out regInSelector_t;  -- used to choose data input
+        wordReg     : out wordSelector_t;   -- used to choose X Y Z regs
 
         -- Data memory control
-        memRW       : out std_logic;                    -- read/write to memory
-        addrSel     : out std_logic_vector(1 downto 0); -- for address mux
-        addBefore   : out std_logic;                    -- dictates when to add to addr
-        decrement   : out std_logic;                    -- when low, decrementing
+        memRW       : out std_logic;        -- read/write to memory
+        addrSel     : out addrSelector_t;   -- for address mux
+        addBefore   : out std_logic;        -- dictates when to add to addr
+        decrement   : out std_logic;        -- when low, decrementing
 
         -- Stack pointer control
         SPWr        : out std_logic                     -- write to stack ptr
@@ -152,10 +160,10 @@ end ControlUnit;
 architecture decoder of ControlUnit is
 
     -- How many clocks an instruction requires
-    signal numClks : natural range 0 to 3 := 0;
+    signal numClks  : clockIndex_t  := 0;
 
     -- How many clocks since instruction began
-    signal clkCnt : natural range 0 to 3 := 0;
+    signal clkCnt   : clockIndex_t  := 0;
 
 begin
 
@@ -862,7 +870,7 @@ begin
                                         -- by default)
 
         -- Stack pointer control
-        SPWr <= '1';                    -- active low write to stack ptr
+        SPWr <= '1';        -- active low write to stack ptr
 
         -- LD Rd, X
         if (std_match(instruction, OpLDX))  then

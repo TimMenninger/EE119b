@@ -1,4 +1,6 @@
-AVR/docs/*~
+AVR/docs/*
+AVR/obj/*
+AVR/bin/*
 AVR/Sandbox/*
 AVR/Notes/*
 AVR/*.o

@@ -1,9 +1,3 @@
--- bring in the necessary packages
-library  ieee;
-use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
-use ieee.numeric_std.all;
-
 -----------------------------------------------------------------------------------------
 --
 -- registers.vhd
@@ -15,32 +9,32 @@ use ieee.numeric_std.all;
 -- Inputs:
 --      clk : std_logic
 --          The global clock
---      clkIdx : natural range 0 to 3
+--      clkIdx : clockIndex_t
 --          The number clock rising edges since the beginning of the instruction
---      ALUIn : std_logic_vector(7 downto 0)
+--      ALUIn : data_t
 --          Data written to a register in the appropriate scenarios.  This comes
 --          from the ALU and will be muxed
---      memIn : std_logic_vector(7 downto 0)
+--      memIn : data_t
 --          Data written to a register from memory.  This will be muxed
---      immedIn : std_logic_vector(7 downto 0)
+--      immedIn : data_t
 --          An immediate value to be written to a register.  It will be muxed
 --      sourceSel : std_logic_vector(1 downto 0)
 --          The mux selector for which data input to write to register
---      wordRegIn : std_logic_vector(15 downto 0)
+--      wordRegIn : dataWord_t
 --          An input to word registers.  This will either write to registers
 --          27&26 (X), 29&23 (Y) or 31&31 (Z)
---      wordRegSel : std_logic_vector(2 downto 0)
+--      wordRegSel : wordSelector_t
 --          The selector that indicates which word register we are accessing.
 --          Using 1 accesses X, using 2 accesses Y and using 3 accesses Z
 --      BLD : std_logic
 --          '1' when BLD executing
---      sel : std_logic_vector(2 downto 0)
+--      sel : flagSelector_t
 --          Bit index to set in BLD
 --      T : std_logic
 --          Value of T flag to set in register for BLD
---      regSelA : std_logic_vector(4 downto 0)
+--      regSelA : regSelector_t
 --          Selects which output to read or write to for register A
---      regSelB : std_logic_vector(4 downto 0)
+--      regSelB : regSelector_t
 --          Selects which output to read or write to for register B
 --      ENMul : std_logic
 --          Active low to indicate that result should be written to word comprised
@@ -66,7 +60,7 @@ use ieee.numeric_std.all;
 --      dataOutB : std_logic_vectr(7 downto 0)
 --          Reflects register B when RW indicates read.  This should only be used
 --          when accessing a double register, and would be the high byte.
---      wordRegOut : std_logic_vector(15 downto 0)
+--      wordRegOut : dataWord_t
 --          This contains a word register.  It could either be X, Y or Z, which are
 --          regs(27) & regs(26), regs(29) & regs(28), or regs(31) & regs(30)
 --          respectively
@@ -78,6 +72,15 @@ use ieee.numeric_std.all;
 --
 -----------------------------------------------------------------------------------------
 
+-- bring in the necessary packages
+library  ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+library common;
+use common.common.all;
+
 --
 -- entity Registers
 --
@@ -86,33 +89,33 @@ use ieee.numeric_std.all;
 --
 entity Registers is
     port (
-        clk         : in  std_logic;                    -- system clock
-        clkIdx      : in  natural range 0 to 3;         -- number of clocks since instr
+        clk         : in  std_logic;        -- system clock
+        clkIdx      : in  clockIndex_t;     -- number of clocks since instr
 
-        ALUIn       : in  std_logic_vector(7 downto 0); -- data input from ALU
-        memIn       : in  std_logic_vector(7 downto 0); -- data input from memory
-        immedIn     : in  std_logic_vector(7 downto 0); -- immediate value from instr
-        sourceSel   : in  std_logic_vector(1 downto 0); -- used to choose data source
+        ALUIn       : in  data_t;           -- data input from ALU
+        memIn       : in  data_t;           -- data input from memory
+        immedIn     : in  data_t;           -- immediate value from instr
+        sourceSel   : in  regInSelector_t;  -- used to choose data source
 
-        wordRegIn   : in  std_logic_vector(15 downto 0);-- new value for word register
-        wordRegSel  : in  std_logic_vector(2 downto 0); -- selects which word register
+        wordRegIn   : in  dataWord_t;       -- new value for word register
+        wordRegSel  : in  wordSelector_t;   -- selects which word register
 
-        BLD         : in  std_logic;                    -- true when BLD occurring
-        sel         : in  std_logic_vector(2 downto 0); -- bit select for BLD
-        T           : in  std_logic;                    -- T flag
+        BLD         : in  std_logic;        -- true when BLD occurring
+        sel         : in  flagSelector_t;   -- bit select for BLD
+        T           : in  std_logic;        -- T flag
 
-        regSelA     : in  std_logic_vector(4 downto 0); -- register select
-        regSelB     : in  std_logic_vector(4 downto 0); -- register select
-        ENMul       : in  std_logic;                    -- write to registers 0 and 1
-        ENSwap      : in  std_logic;                    -- swap nibbles
-        ENRegA      : in  std_logic;                    -- active low enable reg A
-        ENRegB      : in  std_logic;                    -- active low enable reg B
-        ENWrite     : in  std_logic;                    -- active low enable write
+        regSelA     : in  regSelector_t;    -- register select
+        regSelB     : in  regSelector_t;    -- register select
+        ENMul       : in  std_logic;        -- write to registers 0 and 1
+        ENSwap      : in  std_logic;        -- swap nibbles
+        ENRegA      : in  std_logic;        -- active low enable reg A
+        ENRegB      : in  std_logic;        -- active low enable reg B
+        ENWrite     : in  std_logic;        -- active low enable write
 
-        Rdb         : out std_logic;                    -- b'th bit of reg A
-        dataOutA    : out std_logic_vector(7 downto 0); -- low byte of output
-        dataOutB    : out std_logic_vector(7 downto 0); -- high byte of output
-        wordRegOut  : out std_logic_vector(15 downto 0) -- word register output
+        Rdb         : out std_logic;        -- b'th bit of reg A
+        dataOutA    : out data_t;           -- low byte of output
+        dataOutB    : out data_t;           -- high byte of output
+        wordRegOut  : out dataWord_t        -- word register output
     );
 end Registers;
 
@@ -123,20 +126,20 @@ end Registers;
 -- about what each opcode does, refer to instruction.vhd
 --
 -- Types:
---      reg : std_logic_vector(7 downto 0)
+--      reg : data_t
 --          Allows us to easily select registers
 --      regArray : array (0 to 31) of reg
 --          Array of all 32 general purpose registers
 --
 architecture selReg of Registers is
     -- Array of registers
-    type regArray is array (0 to 31) of std_logic_vector(7 downto 0);
+    type regArray is array (0 to 31) of data_t;
 
     -- Define the general purpose registers
     signal regs : regArray := (others => (others => '0'));
 
     -- The data that will be written to register
-    signal dataIn : std_logic_vector(7 downto 0);
+    signal dataIn : data_t;
 
 begin
 

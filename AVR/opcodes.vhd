@@ -17,124 +17,125 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-package opcodes is
+library common;
+use common.common.all;
 
-   subtype  opcode_word  is  std_logic_vector(15 downto 0);
+package opcodes is
 
 --  ALU opcodes
 
-   constant OpADC    :  opcode_word := "000111----------";   -- ADC Rd, Rr
-   constant OpADD    :  opcode_word := "000011----------";   -- ADD Rd, Rr
-   constant OpADIW   :  opcode_word := "10010110--------";   -- ADIW Rdl, K
-   constant OpAND    :  opcode_word := "001000----------";   -- AND Rd, Rr
-   constant OpANDI   :  opcode_word := "0111------------";   -- ANDI Rd, K
-   constant OpASR    :  opcode_word := "1001010-----0101";   -- ASR Rd
-   constant OpBCLR   :  opcode_word := "100101001---1000";   -- BCLR s
-   constant OpBLD    :  opcode_word := "1111100-----0---";   -- BLD Rd, b
-   constant OpBSET   :  opcode_word := "100101000---1000";   -- BSET s
-   constant OpBST    :  opcode_word := "1111101---------";   -- BST Rr, b
-   constant OpCOM    :  opcode_word := "1001010-----0000";   -- COM Rd
-   constant OpCP     :  opcode_word := "000101----------";   -- CP Rd, Rr
-   constant OpCPC    :  opcode_word := "000001----------";   -- CPC Rd, Rr
-   constant OpCPI    :  opcode_word := "0011------------";   -- CPI Rd, K
-   constant OpDEC    :  opcode_word := "1001010-----1010";   -- DEC Rd
-   constant OpEOR    :  opcode_word := "001001----------";   -- EOR Rd, Rr
-   constant OpFMUL   :  opcode_word := "000000110---1---";   -- FMUL Rd, Rr
-   constant OpFMULS  :  opcode_word := "000000111---0---";   -- FMULS Rd, Rr
-   constant OpFMULSU :  opcode_word := "000000111---1---";   -- FMULSU Rd, Rr
-   constant OpINC    :  opcode_word := "1001010-----0011";   -- INC Rd
-   constant OpLSR    :  opcode_word := "1001010-----0110";   -- LSR Rd
-   constant OpMUL    :  opcode_word := "100111----------";   -- MUL Rd, Rr
-   constant OpMULS   :  opcode_word := "00000010--------";   -- MULS Rd, Rr
-   constant OpMULSU  :  opcode_word := "000000110---0---";   -- MULSU Rd, Rr
-   constant OpNEG    :  opcode_word := "1001010-----0001";   -- NEG Rd
-   constant OpOR     :  opcode_word := "001010----------";   -- OR Rd, Rr
-   constant OpORI    :  opcode_word := "0110------------";   -- ORI Rd, K
-   constant OpROR    :  opcode_word := "1001010-----0111";   -- ROR Rd
-   constant OpSBC    :  opcode_word := "000010----------";   -- SBC Rd, Rr
-   constant OpSBCI   :  opcode_word := "0100------------";   -- SBCI Rd, K
-   constant OpSBIW   :  opcode_word := "10010111--------";   -- SBIW Rdl, K
-   constant OpSUB    :  opcode_word := "000110----------";   -- SUB Rd, Rr
-   constant OpSUBI   :  opcode_word := "0101------------";   -- SUBI Rd, K
-   constant OpSWAP   :  opcode_word := "1001010-----0010";   -- SWAP Rd
+   constant OpADC    :  instruction_t := "000111----------";   -- ADC Rd, Rr
+   constant OpADD    :  instruction_t := "000011----------";   -- ADD Rd, Rr
+   constant OpADIW   :  instruction_t := "10010110--------";   -- ADIW Rdl, K
+   constant OpAND    :  instruction_t := "001000----------";   -- AND Rd, Rr
+   constant OpANDI   :  instruction_t := "0111------------";   -- ANDI Rd, K
+   constant OpASR    :  instruction_t := "1001010-----0101";   -- ASR Rd
+   constant OpBCLR   :  instruction_t := "100101001---1000";   -- BCLR s
+   constant OpBLD    :  instruction_t := "1111100-----0---";   -- BLD Rd, b
+   constant OpBSET   :  instruction_t := "100101000---1000";   -- BSET s
+   constant OpBST    :  instruction_t := "1111101---------";   -- BST Rr, b
+   constant OpCOM    :  instruction_t := "1001010-----0000";   -- COM Rd
+   constant OpCP     :  instruction_t := "000101----------";   -- CP Rd, Rr
+   constant OpCPC    :  instruction_t := "000001----------";   -- CPC Rd, Rr
+   constant OpCPI    :  instruction_t := "0011------------";   -- CPI Rd, K
+   constant OpDEC    :  instruction_t := "1001010-----1010";   -- DEC Rd
+   constant OpEOR    :  instruction_t := "001001----------";   -- EOR Rd, Rr
+   constant OpFMUL   :  instruction_t := "000000110---1---";   -- FMUL Rd, Rr
+   constant OpFMULS  :  instruction_t := "000000111---0---";   -- FMULS Rd, Rr
+   constant OpFMULSU :  instruction_t := "000000111---1---";   -- FMULSU Rd, Rr
+   constant OpINC    :  instruction_t := "1001010-----0011";   -- INC Rd
+   constant OpLSR    :  instruction_t := "1001010-----0110";   -- LSR Rd
+   constant OpMUL    :  instruction_t := "100111----------";   -- MUL Rd, Rr
+   constant OpMULS   :  instruction_t := "00000010--------";   -- MULS Rd, Rr
+   constant OpMULSU  :  instruction_t := "000000110---0---";   -- MULSU Rd, Rr
+   constant OpNEG    :  instruction_t := "1001010-----0001";   -- NEG Rd
+   constant OpOR     :  instruction_t := "001010----------";   -- OR Rd, Rr
+   constant OpORI    :  instruction_t := "0110------------";   -- ORI Rd, K
+   constant OpROR    :  instruction_t := "1001010-----0111";   -- ROR Rd
+   constant OpSBC    :  instruction_t := "000010----------";   -- SBC Rd, Rr
+   constant OpSBCI   :  instruction_t := "0100------------";   -- SBCI Rd, K
+   constant OpSBIW   :  instruction_t := "10010111--------";   -- SBIW Rdl, K
+   constant OpSUB    :  instruction_t := "000110----------";   -- SUB Rd, Rr
+   constant OpSUBI   :  instruction_t := "0101------------";   -- SUBI Rd, K
+   constant OpSWAP   :  instruction_t := "1001010-----0010";   -- SWAP Rd
 
 --  Load and Store Opcodes
 
-   constant OpELPM   :  opcode_word := "1001010111011000";   -- ELPM
-   constant OpELPMZ  :  opcode_word := "1001000-----0110";   -- ELPM Rd, Z
-   constant OpELPMZI :  opcode_word := "1001000-----0111";   -- ELPM Rd, Z+
-   constant OpLDX    :  opcode_word := "1001000-----1100";   -- LD Rd, X
-   constant OpLDXI   :  opcode_word := "1001000-----1101";   -- LD Rd, X+
-   constant OpLDXD   :  opcode_word := "1001000-----1110";   -- LD Rd, -X
-   constant OpLDYI   :  opcode_word := "1001000-----1001";   -- LD Rd, Y+
-   constant OpLDYD   :  opcode_word := "1001000-----1010";   -- LD Rd, -Y
-   constant OpLDDY   :  opcode_word := "10-0--0-----1---";   -- LDD Rd, Y + q
-   constant OpLDZI   :  opcode_word := "1001000-----0001";   -- LD Rd, Z+
-   constant OpLDZD   :  opcode_word := "1001000-----0010";   -- LD Rd, -Z
-   constant OpLDDZ   :  opcode_word := "10-0--0-----0---";   -- LDD Rd, Z + q
-   constant OpLDI    :  opcode_word := "1110------------";   -- LDI Rd, k
-   constant OpLDS    :  opcode_word := "1001000-----0000";   -- LDS Rd, m
-   constant OpLPM    :  opcode_word := "1001010111001000";   -- LPM
-   constant OpLPMZ   :  opcode_word := "1001000-----0100";   -- LPM Rd, Z
-   constant OpLPMZI  :  opcode_word := "1001000-----0101";   -- LPM Rd, Z+
-   constant OpMOV    :  opcode_word := "001011----------";   -- MOV Rd, Rr
-   constant OpMOVW   :  opcode_word := "00000001--------";   -- MOVW Rd, Rr
-   constant OpSPM    :  opcode_word := "1001010111101000";   -- SPM
-   constant OpSTX    :  opcode_word := "1001001-----1100";   -- ST X, Rr
-   constant OpSTXI   :  opcode_word := "1001001-----1101";   -- ST X+, Rr
-   constant OpSTXD   :  opcode_word := "1001001-----1110";   -- ST -X, Rr
-   constant OpSTYI   :  opcode_word := "1001001-----1001";   -- ST Y+, Rr
-   constant OpSTYD   :  opcode_word := "1001001-----1010";   -- ST -Y, Rr
-   constant OpSTDY   :  opcode_word := "10-0--1-----1---";   -- STD Y + q, Rr
-   constant OpSTZI   :  opcode_word := "1001001-----0001";   -- ST Z+, Rr
-   constant OpSTZD   :  opcode_word := "1001001-----0010";   -- ST -Z, Rr
-   constant OpSTDZ   :  opcode_word := "10-0--1-----0---";   -- STD Z + q, Rr
-   constant OpSTS    :  opcode_word := "1001001-----0000";   -- STS m, Rr
+   constant OpELPM   :  instruction_t := "1001010111011000";   -- ELPM
+   constant OpELPMZ  :  instruction_t := "1001000-----0110";   -- ELPM Rd, Z
+   constant OpELPMZI :  instruction_t := "1001000-----0111";   -- ELPM Rd, Z+
+   constant OpLDX    :  instruction_t := "1001000-----1100";   -- LD Rd, X
+   constant OpLDXI   :  instruction_t := "1001000-----1101";   -- LD Rd, X+
+   constant OpLDXD   :  instruction_t := "1001000-----1110";   -- LD Rd, -X
+   constant OpLDYI   :  instruction_t := "1001000-----1001";   -- LD Rd, Y+
+   constant OpLDYD   :  instruction_t := "1001000-----1010";   -- LD Rd, -Y
+   constant OpLDDY   :  instruction_t := "10-0--0-----1---";   -- LDD Rd, Y + q
+   constant OpLDZI   :  instruction_t := "1001000-----0001";   -- LD Rd, Z+
+   constant OpLDZD   :  instruction_t := "1001000-----0010";   -- LD Rd, -Z
+   constant OpLDDZ   :  instruction_t := "10-0--0-----0---";   -- LDD Rd, Z + q
+   constant OpLDI    :  instruction_t := "1110------------";   -- LDI Rd, k
+   constant OpLDS    :  instruction_t := "1001000-----0000";   -- LDS Rd, m
+   constant OpLPM    :  instruction_t := "1001010111001000";   -- LPM
+   constant OpLPMZ   :  instruction_t := "1001000-----0100";   -- LPM Rd, Z
+   constant OpLPMZI  :  instruction_t := "1001000-----0101";   -- LPM Rd, Z+
+   constant OpMOV    :  instruction_t := "001011----------";   -- MOV Rd, Rr
+   constant OpMOVW   :  instruction_t := "00000001--------";   -- MOVW Rd, Rr
+   constant OpSPM    :  instruction_t := "1001010111101000";   -- SPM
+   constant OpSTX    :  instruction_t := "1001001-----1100";   -- ST X, Rr
+   constant OpSTXI   :  instruction_t := "1001001-----1101";   -- ST X+, Rr
+   constant OpSTXD   :  instruction_t := "1001001-----1110";   -- ST -X, Rr
+   constant OpSTYI   :  instruction_t := "1001001-----1001";   -- ST Y+, Rr
+   constant OpSTYD   :  instruction_t := "1001001-----1010";   -- ST -Y, Rr
+   constant OpSTDY   :  instruction_t := "10-0--1-----1---";   -- STD Y + q, Rr
+   constant OpSTZI   :  instruction_t := "1001001-----0001";   -- ST Z+, Rr
+   constant OpSTZD   :  instruction_t := "1001001-----0010";   -- ST -Z, Rr
+   constant OpSTDZ   :  instruction_t := "10-0--1-----0---";   -- STD Z + q, Rr
+   constant OpSTS    :  instruction_t := "1001001-----0000";   -- STS m, Rr
 
 --  Push and Pop Opcodes
 
-   constant OpPOP    :  opcode_word := "1001000-----1111";   -- POP Rd
-   constant OpPUSH   :  opcode_word := "1001001-----1111";   -- PUSH Rd
+   constant OpPOP    :  instruction_t := "1001000-----1111";   -- POP Rd
+   constant OpPUSH   :  instruction_t := "1001001-----1111";   -- PUSH Rd
 
 --  Unconditional Branches
 
-   constant OpEICALL :  opcode_word := "1001010100011001";   -- EICALL
-   constant OpEIJMP  :  opcode_word := "1001010000011001";   -- EIJMP
-   constant OpJMP    :  opcode_word := "1001010-----110-";   -- JMP a
-   constant OpRJMP   :  opcode_word := "1100------------";   -- RJMP j
-   constant OpIJMP   :  opcode_word := "10010100----1001";   -- IJMP
-   constant OpCALL   :  opcode_word := "1001010-----111-";   -- CALL a
-   constant OpRCALL  :  opcode_word := "1101------------";   -- RCALL j
-   constant OpICALL  :  opcode_word := "10010101----1001";   -- ICALL
-   constant OpRET    :  opcode_word := "100101010--01000";   -- RET
-   constant OpRETI   :  opcode_word := "100101010--11000";   -- RETI
+   constant OpEICALL :  instruction_t := "1001010100011001";   -- EICALL
+   constant OpEIJMP  :  instruction_t := "1001010000011001";   -- EIJMP
+   constant OpJMP    :  instruction_t := "1001010-----110-";   -- JMP a
+   constant OpRJMP   :  instruction_t := "1100------------";   -- RJMP j
+   constant OpIJMP   :  instruction_t := "10010100----1001";   -- IJMP
+   constant OpCALL   :  instruction_t := "1001010-----111-";   -- CALL a
+   constant OpRCALL  :  instruction_t := "1101------------";   -- RCALL j
+   constant OpICALL  :  instruction_t := "10010101----1001";   -- ICALL
+   constant OpRET    :  instruction_t := "100101010--01000";   -- RET
+   constant OpRETI   :  instruction_t := "100101010--11000";   -- RETI
 
 --  Conditional Branches
 
-   constant OpBRBC   :  opcode_word := "111101----------";   -- BRBC s, r
-   constant OpBRBS   :  opcode_word := "111100----------";   -- BRBS s, r
+   constant OpBRBC   :  instruction_t := "111101----------";   -- BRBC s, r
+   constant OpBRBS   :  instruction_t := "111100----------";   -- BRBS s, r
 
 --  Skip Instructions
 
-   constant OpCPSE   :  opcode_word := "000100----------";   -- CPSE Rd, Rr
-   constant OpSBIC   :  opcode_word := "10011001--------";   -- SBIC p, b
-   constant OpSBIS   :  opcode_word := "10011011--------";   -- SBIS p, b
-   constant OpSBRC   :  opcode_word := "1111110---------";   -- SBRC Rr, b
-   constant OpSBRS   :  opcode_word := "1111111---------";   -- SBRS Rr, b
+   constant OpCPSE   :  instruction_t := "000100----------";   -- CPSE Rd, Rr
+   constant OpSBIC   :  instruction_t := "10011001--------";   -- SBIC p, b
+   constant OpSBIS   :  instruction_t := "10011011--------";   -- SBIS p, b
+   constant OpSBRC   :  instruction_t := "1111110---------";   -- SBRC Rr, b
+   constant OpSBRS   :  instruction_t := "1111111---------";   -- SBRS Rr, b
 
 --  I/O Instructions
 
-   constant OpCBI    :  opcode_word := "10011000--------";   -- CBI p, b
-   constant OpIN     :  opcode_word := "10110-----------";   -- IN Rd, p
-   constant OpOUT    :  opcode_word := "10111-----------";   -- OUT p, Rr
-   constant OpSBI    :  opcode_word := "10011010--------";   -- SBI p, b
+   constant OpCBI    :  instruction_t := "10011000--------";   -- CBI p, b
+   constant OpIN     :  instruction_t := "10110-----------";   -- IN Rd, p
+   constant OpOUT    :  instruction_t := "10111-----------";   -- OUT p, Rr
+   constant OpSBI    :  instruction_t := "10011010--------";   -- SBI p, b
 
 --  Miscellaneous Instructions
 
-   constant OpBREAK  :  opcode_word := "1001010110011000";   -- BREAK
-   constant OpNOP    :  opcode_word := "0000000000000000";   -- NOP
-   constant OpSLP    :  opcode_word := "10010101100-1000";   -- SLEEP
-   constant OpWDR    :  opcode_word := "10010101101-1000";   -- WDR 
+   constant OpBREAK  :  instruction_t := "1001010110011000";   -- BREAK
+   constant OpNOP    :  instruction_t := "0000000000000000";   -- NOP
+   constant OpSLP    :  instruction_t := "10010101100-1000";   -- SLEEP
+   constant OpWDR    :  instruction_t := "10010101101-1000";   -- WDR
 
 
 end package;

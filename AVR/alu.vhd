@@ -1,9 +1,3 @@
--- bring in the necessary packages
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
-use ieee.numeric_std.all;
-
 -----------------------------------------------------------------------------------------
 --
 -- alu.vhd
@@ -15,18 +9,18 @@ use ieee.numeric_std.all;
 -- valid instruction
 --
 -- Inputs:
---      opA : unsigned(7 downto 0)
+--      opA : data_t
 --          The first operand.  Consistent with the docs on wolverine.caltech.edu,
 --          this is operand 1.
---      opB : unsigned(7 downto 0)
+--      opB : data_t
 --          The first operand.  Consistent with the docs on wolverine.caltech.edu,
 --          this is operand 2.  In the case of an immediate value, this will contain
 --          the immediate value.
---      immed : unsigned(7 downto 0)
+--      immed : data_t
 --          The immediate value for those instructions which require it
---      SREG : std_logic_vector(7 downto 0)
+--      SREG : status_t
 --          The status register before operation.
---      ENALU : std_logic_vector(1 downto 0)
+--      ENALU : ALUSelector_t
 --          Describes type of operation.  When 0, use adder, when 1, use shifter
 --          when 2, use AND from fblock, when 3, use XOR from fblock
 --      ENCarry : std_logic
@@ -40,6 +34,10 @@ use ieee.numeric_std.all;
 --          Active low to indicate that the result should be inverted in the case
 --          of AND, and 1 should be added to it (to finish negation) in the case
 --          of the Adder and XOR
+--      ENMul : std_logic
+--          Signal that notifies the system of a MUL instruction
+--      clkIdx : clockIndex_t
+--          How many clocks have passed since the start of the instruction
 --
 -- Outputs:
 --      Rd0 : std_logic
@@ -52,13 +50,22 @@ use ieee.numeric_std.all;
 --          Bit 7 of operand A, used by status register to compute flags
 --      Rr7 : std_logic
 --          Bit 7 of operand B, used by status register to compute flags
---      result : std_logic_vector(7 downto 0)
+--      result : data_t
 --          The result of the operation.
 --
 -- Revision History:
 --      26 Jan 17  Tim Menninger     Entity declaration
 --
 -----------------------------------------------------------------------------------------
+
+-- bring in the necessary packages
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+library common;
+use common.common.all;
 
 --
 -- entity ALU
@@ -67,27 +74,27 @@ use ieee.numeric_std.all;
 --
 entity ALU is
     port (
-        opA         : in  std_logic_vector(7 downto 0); -- operand 1
-        opB         : in  std_logic_vector(7 downto 0); -- operand 2
-        immed       : in  std_logic_vector(7 downto 0); -- immediate value
-        SREG        : in  std_logic_vector(7 downto 0); -- flags
+        opA         : in  data_t;           -- operand 1
+        opB         : in  data_t;           -- operand 2
+        immed       : in  data_t;           -- immediate value
+        SREG        : in  status_t;         -- flags
 
-        ENALU       : in  std_logic_vector(1 downto 0); -- operation type
-        ENCarry     : in  std_logic;                    -- opcode uses carry
-        ENImmed     : in  std_logic;                    -- opcode uses immed
-        ENInvOp     : in  std_logic;                    -- negate operand
-        ENInvRes    : in  std_logic;                    -- negate result
+        ENALU       : in  ALUSelector_t;    -- operation type
+        ENCarry     : in  std_logic;        -- opcode uses carry
+        ENImmed     : in  std_logic;        -- opcode uses immed
+        ENInvOp     : in  std_logic;        -- negate operand
+        ENInvRes    : in  std_logic;        -- negate result
 
-        ENMul       : in  std_logic;                    -- active (low) when MUL
-        clkIdx      : in  natural range 0 to 3;         -- num clks since instrctn
+        ENMul       : in  std_logic;        -- active (low) when MUL
+        clkIdx      : in  clockIndex_t;     -- num clks since instrctn
 
-        Rd0         : out std_logic;                    -- bit 0 of operand A
-        Rd3         : out std_logic;                    -- bit 3 of operand A
-        Rr3         : out std_logic;                    -- bit 3 of operand B
-        Rd7         : out std_logic;                    -- bit 7 of operand A
-        Rr7         : out std_logic;                    -- bit 7 of operand B
+        Rd0         : out std_logic;        -- bit 0 of operand A
+        Rd3         : out std_logic;        -- bit 3 of operand A
+        Rr3         : out std_logic;        -- bit 3 of operand B
+        Rd7         : out std_logic;        -- bit 7 of operand A
+        Rr7         : out std_logic;        -- bit 7 of operand B
 
-        result      : out std_logic_vector(7 downto 0)  -- computed result
+        result      : out data_t            -- computed result
     );
 end ALU;
 
@@ -152,14 +159,14 @@ architecture compute of ALU is
     -- Adder
     -------------------------------------------------------------------------------------
     -- Signals used in the adder component
-    signal a      : std_logic_vector(7 downto 0)    := "00000000";
-    signal b      : std_logic_vector(7 downto 0)    := "00000000";
-    signal Cin    : std_logic                       := '0';
-    signal Cout   : std_logic                       := '0';
-    signal sum    : std_logic_vector(7 downto 0)    := "00000000";
+    signal a      : data_t              := "00000000";
+    signal b      : data_t              := "00000000";
+    signal Cin    : std_logic           := '0';
+    signal Cout   : std_logic           := '0';
+    signal sum    : data_t              := "00000000";
     component NBitAdder is
         generic (
-            n       : natural := 8                          -- bits in adder
+            n       : natural           := dataBits         -- bits in adder
         );
         port (
             Cin     : in  std_logic;                        -- Cin
@@ -175,12 +182,12 @@ architecture compute of ALU is
     -- Shifter
     -------------------------------------------------------------------------------------
     -- Signals used in the shifter component
-    signal shiftIn  : std_logic                     := '0';
-    signal shifted  : std_logic_vector(7 downto 0)  := "00000000";
-    signal shiftOut : std_logic                     := '0';
+    signal shiftIn  : std_logic         := '0';
+    signal shifted  : data_t            := "00000000";
+    signal shiftOut : std_logic         := '0';
     component NBitShifter is
         generic (
-            n           : natural := 8                          -- Number of bits
+            n           : natural       := dataBits             -- Number of bits
         );
         port (
             ShiftIn     : in  std_logic;                        -- Bit shifted in
@@ -194,11 +201,11 @@ architecture compute of ALU is
     -- F Blocks
     -------------------------------------------------------------------------------------
     -- Signals used in F blocks.
-    signal aANDb : std_logic_vector(7 downto 0)     := "00000000";
-    signal aXORb : std_logic_vector(7 downto 0)     := "00000000";
+    signal aANDb : data_t               := "00000000";
+    signal aXORb : data_t               := "00000000";
     component NBitFBlock is
         generic (
-            n           : natural := 8                          -- Number of bits
+            n       : natural           := dataBits             -- Number of bits
         );
         port (
             a       : in  std_logic_vector(n-1 downto 0);       -- First operand
@@ -212,17 +219,17 @@ architecture compute of ALU is
     -- General correction signals
     -------------------------------------------------------------------------------------
     -- Product of two operands
-    signal product      : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal productOut   : std_logic_vector(7 downto 0)  := "00000000"; -- depends on clock
+    signal product      : dataWord_t    := "0000000000000000";
+    signal productOut   : data_t        := "00000000"; -- depends on clock
     -- Signals used in result adder, summand is Cin
-    signal summand      : std_logic                     := '0';
-    signal addToThis    : std_logic_vector(7 downto 0)  := "00000000";
+    signal summand      : std_logic     := '0';
+    signal addToThis    : data_t        := "00000000";
     -- Corrected AND output, relevant if ANDing and inverting
-    signal aANDbCorrect : std_logic_vector(7 downto 0)  := "00000000";
+    signal aANDbCorrect : data_t        := "00000000";
     -- We use an intermediate b, which contains either opB or immed
-    signal bInter       : std_logic_vector(7 downto 0)  := "00000000";
+    signal bInter       : data_t        := "00000000";
     -- Result of ALU for anything that isn't multiplication
-    signal ALURes       : std_logic_vector(7 downto 0)  := "00000000";
+    signal ALURes       : data_t        := "00000000";
 
 begin
 

@@ -1,7 +1,3 @@
--- bring in the necessary packages
-library  ieee;
-use  ieee.std_logic_1164.all;
-
 -----------------------------------------------------------------------------------------
 --
 -- memory.vhd
@@ -14,38 +10,38 @@ use  ieee.std_logic_1164.all;
 -- Inputs:
 --      clk : std_logic
 --          System clock
---      clkIdx : natural range 0 to 3
+--      clkIdx : clockIndex_t
 --          The number of clocks since the beginning of the instruction
---      regAddr : std_logic_vector(15 downto 0)
+--      regAddr : address_t
 --          The address from the register unit, will be muxed
---      SPAddr : std_logic_vector(15 downto 0)
+--      SPAddr : address_t
 --          The address from the stack pointer, will be muxed
---      IRAddr : std_logic_vector(15 downto 0)
+--      IRAddr : address_t
 --          The address from the instruction, will be muxed
---      immed : std_logic_vector(5 downto 0)
+--      immed : addrOffset_t
 --          An immediate value that will be added to the address either before
 --          or after accessing memory
 --      decrement : std_logic
 --          When low, decrement the address instead of adding the immediate
---      addrSel : std_logic_vector(1 downto 0)
+--      addrSel : addrSelector_t
 --          The selector for which address should be used to access memory
 --      RW : std_logic
 --          Read/not write to memory
 --      addBefore : std_logic
 --          When low, the immediate value or decrement should occur before the
 --          memory access
---      dataIn : std_logic_vector(7 downto 0)
+--      dataIn : data_t
 --          The data input to be written to memory if applicable.
---      DataDB : std_logic_vector(7 downto 0)
+--      DataDB : data_t
 --          The data bus to memory.  Note that this is an INOUT and can be hi-Z
 --
 -- Outputs:
---      addrOut: out std_logic_vector(15 downto 0)
+--      addrOut: address_t
 --          The output address.  This is used by other entities when the address
 --          source needs an updated address, e.g., the stack pointer
---      DataAB: out std_logic_vector(15 downto 0)
+--      DataAB: address_t
 --          The address bus to external memory
---      DataDB: out std_logic_vector(7 downto 0)
+--      DataDB: data_t
 --          The data bus to/form external memory
 --      DataRd: out std_logic
 --          Active low read signal to external memory.  This is to go low on the last
@@ -59,6 +55,13 @@ use  ieee.std_logic_1164.all;
 --
 -----------------------------------------------------------------------------------------
 
+-- bring in the necessary packages
+library  ieee;
+use  ieee.std_logic_1164.all;
+
+library common;
+use common.common.all;
+
 --
 -- entity MemoryUnit
 --
@@ -67,26 +70,25 @@ use  ieee.std_logic_1164.all;
 --
 entity MemoryUnit is
     port (
-        clk         : in  std_logic;                        -- system clock
-        clkIdx      : in  natural range 0 to 3;             -- number of clocks passed
+        clk         : in  std_logic;        -- system clock
+        clkIdx      : in  clockIndex_t;     -- number of clocks passed
 
-        regAddr     : in  std_logic_vector(15 downto 0);    -- address from registers
-        SPAddr      : in  std_logic_vector(15 downto 0);    -- address from stack ptr
-        IRAddr      : in  std_logic_vector(15 downto 0);    -- address from instruction
-        immed       : in  std_logic_vector(5 downto 0);     -- memory address offset
-        decrement   : in  std_logic;                        -- when low, decrement
+        regAddr     : in  address_t;        -- address from registers
+        SPAddr      : in  address_t;        -- address from stack ptr
+        IRAddr      : in  address_t;        -- address from instruction
+        immed       : in  addrOffset_t;     -- memory address offset
+        decrement   : in  std_logic;        -- when low, decrement
 
-        addrSel     : in  std_logic_vector(1 downto 0);     -- chooses which address
-        RW          : in  std_logic;                        -- read/not write
-        addBefore   : in  std_logic;                        -- when low, add offset
-                                                            -- to address before output
-        dataIn      : in  std_logic_vector(7 downto 0);     -- input data
-        addrOut     : out std_logic_vector(15 downto 0);    -- address after inc/dec
+        addrSel     : in  addrSelector_t;   -- chooses which address
+        RW          : in  std_logic;        -- read/not write
+        addBefore   : in  std_logic;        -- when low, add offset before output
+        dataIn      : in  data_t;           -- input data
+        addrOut     : out address_t;        -- address after inc/dec
 
-        DataAB      : out std_logic_vector(15 downto 0);    -- address to memory
-        DataDB      : inout std_logic_vector(7 downto 0);   -- data bus in and out
-        DataRd      : out std_logic;                        -- read signal to memory
-        DataWr      : out std_logic                         -- write signal to memory
+        DataAB      : out address_t;        -- address to memory
+        DataDB      : inout data_t;         -- data bus in and out
+        DataRd      : out std_logic;        -- read signal to memory
+        DataWr      : out std_logic         -- write signal to memory
     );
 end MemoryUnit;
 
@@ -102,12 +104,12 @@ architecture workflow of MemoryUnit is
     --      address: The original address, muxed from inputs
     --      offset: The offset, either 1, -1, or from immed
     --      nextAddress: The address with offset
-    signal address      : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal offset       : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal nextAddress  : std_logic_vector(15 downto 0) := "0000000000000000";
+    signal address      : address_t := "0000000000000000";
+    signal offset       : address_t := "0000000000000000";
+    signal nextAddress  : address_t := "0000000000000000";
     component NBitAdder is
         generic (
-            n       : natural := 16                         -- bits in adder
+            n       : natural := addrBits                   -- bits in adder
         );
         port (
             Cin     : in  std_logic;                        -- Cin

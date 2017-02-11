@@ -40,14 +40,17 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
+library common;
+use common.common.all;
+
 
 entity  TEST_REG  is
     port(
-        IR       :  in  std_logic_vector(15 downto 0);     -- Instruction Register
-        RegIn    :  in  std_logic_vector(7 downto 0);       -- input register bus
-        clk      :  in  std_logic;                          -- system clk
-        RegAOut  :  out std_logic_vector(7 downto 0);       -- register bus A out
-        RegBOut  :  out std_logic_vector(7 downto 0)        -- register bus B out
+        IR       :  in  instruction_t;  -- Instruction Register
+        RegIn    :  in  data_t;         -- input register bus
+        clk      :  in  std_logic;      -- system clk
+        RegAOut  :  out data_t;         -- register bus A out
+        RegBOut  :  out data_t          -- register bus B out
     );
 end  TEST_REG;
 
@@ -56,188 +59,188 @@ architecture toplevel of TEST_REG is
     -- ALU component we are testing
     component ALU is
         port (
-            opA         : in  std_logic_vector(7 downto 0); -- operand 1
-            opB         : in  std_logic_vector(7 downto 0); -- operand 2
-            immed       : in  std_logic_vector(7 downto 0); -- immediate value
-            SREG        : in  std_logic_vector(7 downto 0); -- flags
+            opA         : in  data_t;           -- operand 1
+            opB         : in  data_t;           -- operand 2
+            immed       : in  data_t;           -- immediate value
+            SREG        : in  status_t;         -- flags
 
-            ENALU       : in  std_logic_vector(1 downto 0); -- operation type
-            ENCarry     : in  std_logic;                    -- opcode uses carry
-            ENImmed     : in  std_logic;                    -- opcode uses immed
-            ENInvOp     : in  std_logic;                    -- negate operand
-            ENInvRes    : in  std_logic;                    -- negate result
+            ENALU       : in  ALUSelector_t;    -- operation type
+            ENCarry     : in  std_logic;        -- opcode uses carry
+            ENImmed     : in  std_logic;        -- opcode uses immed
+            ENInvOp     : in  std_logic;        -- negate operand
+            ENInvRes    : in  std_logic;        -- negate result
 
-            ENMul       : in  std_logic;                    -- active (low) when MUL
-            clkIdx      : in  natural range 0 to 3;         -- num clks since instrctn
+            ENMul       : in  std_logic;        -- active (low) when MUL
+            clkIdx      : in  clockIndex_t;     -- num clks since instrctn
 
-            Rd0         : out std_logic;                    -- bit 0 of operand A
-            Rd3         : out std_logic;                    -- bit 3 of operand A
-            Rr3         : out std_logic;                    -- bit 3 of operand B
-            Rd7         : out std_logic;                    -- bit 7 of operand A
-            Rr7         : out std_logic;                    -- bit 7 of operand B
+            Rd0         : out std_logic;        -- bit 0 of operand A
+            Rd3         : out std_logic;        -- bit 3 of operand A
+            Rr3         : out std_logic;        -- bit 3 of operand B
+            Rd7         : out std_logic;        -- bit 7 of operand A
+            Rr7         : out std_logic;        -- bit 7 of operand B
 
-            result      : out std_logic_vector(7 downto 0)  -- computed result
+            result      : out data_t            -- computed result
         );
     end component;
 
     component Registers is
         port (
-            clk         : in  std_logic;                    -- system clk
-            clkIdx      : in  natural range 0 to 3;         -- number of clocks since instr
+            clk         : in  std_logic;        -- system clk
+            clkIdx      : in  clockIndex_t;     -- number of clocks since instr
 
-            ALUIn       : in  std_logic_vector(7 downto 0); -- data input from ALU
-            memIn       : in  std_logic_vector(7 downto 0); -- data input from memory
-            immedIn     : in  std_logic_vector(7 downto 0); -- immediate value from instr
-            sourceSel   : in  std_logic_vector(1 downto 0); -- used to choose data source
+            ALUIn       : in  data_t;           -- data input from ALU
+            memIn       : in  data_t;           -- data input from memory
+            immedIn     : in  data_t;           -- immediate value from instr
+            sourceSel   : in  regInSelector_t;  -- used to choose data source
 
-            wordRegIn   : in  std_logic_vector(15 downto 0);-- new value for word register
-            wordRegSel  : in  std_logic_vector(2 downto 0); -- selects which word register
+            wordRegIn   : in  dataWord_t;       -- new value for word register
+            wordRegSel  : in  wordSelector_t;   -- selects which word register
 
-            BLD         : in  std_logic;                    -- true when BLD occurring
-            sel         : in  std_logic_vector(2 downto 0); -- bit select for BLD
-            T           : in  std_logic;                    -- T flag
+            BLD         : in  std_logic;        -- true when BLD occurring
+            sel         : in  flagSelector_t;   -- bit select for BLD
+            T           : in  std_logic;        -- T flag
 
-            regSelA     : in  std_logic_vector(4 downto 0); -- register select
-            regSelB     : in  std_logic_vector(4 downto 0); -- register select
-            ENMul       : in  std_logic;                    -- write to registers 0 and 1
-            ENSwap      : in  std_logic;                    -- swap nibbles
-            ENRegA      : in  std_logic;                    -- active low enable reg A
-            ENRegB      : in  std_logic;                    -- active low enable reg B
-            ENWrite     : in  std_logic;                    -- active low enable write
+            regSelA     : in  regSelector_t;    -- register select
+            regSelB     : in  regSelector_t;    -- register select
+            ENMul       : in  std_logic;        -- write to registers 0 and 1
+            ENSwap      : in  std_logic;        -- swap nibbles
+            ENRegA      : in  std_logic;        -- active low enable reg A
+            ENRegB      : in  std_logic;        -- active low enable reg B
+            ENWrite     : in  std_logic;        -- active low enable write
 
-            Rdb         : out std_logic;                    -- b'th bit of reg A
-            dataOutA    : out std_logic_vector(7 downto 0); -- low byte of output
-            dataOutB    : out std_logic_vector(7 downto 0); -- high byte of output
-            wordRegOut  : out std_logic_vector(15 downto 0) -- word register output
+            Rdb         : out std_logic;        -- b'th bit of reg A
+            dataOutA    : out data_t;           -- low byte of output
+            dataOutB    : out data_t;           -- high byte of output
+            wordRegOut  : out dataWord_t        -- word register output
         );
     end component;
 
     -- The status register is updated by the ALU
     component Status is
         port (
-            clk         : in  std_logic;                            -- system clk
+            clk         : in  std_logic;        -- system clk
 
-            R           : in  std_logic_vector(7 downto 0);         -- result from ALU
-            Rd0         : in  std_logic;                            -- bit 0 of operand A
-            Rd3         : in  std_logic;                            -- bit 3 of operand A
-            Rr3         : in  std_logic;                            -- bit 3 of operand B
-            Rd7         : in  std_logic;                            -- bit 7 of operand A
-            Rr7         : in  std_logic;                            -- bit 7 of operand B
-            Rdb         : in  std_logic;                            -- Bit to set T to
+            R           : in  data_t;           -- result from ALU
+            Rd0         : in  std_logic;        -- bit 0 of operand A
+            Rd3         : in  std_logic;        -- bit 3 of operand A
+            Rr3         : in  std_logic;        -- bit 3 of operand B
+            Rd7         : in  std_logic;        -- bit 7 of operand A
+            Rr7         : in  std_logic;        -- bit 7 of operand B
+            Rdb         : in  std_logic;        -- Bit to set T to
 
-            BST         : in  std_logic;                            -- '1' when in BST
-            sel         : in  std_logic_vector(2 downto 0);         -- selects flag index
-            mask        : in  std_logic_vector(7 downto 0);         -- masks unaffected flags
-            clkIdx      : in  natural range 0 to 3;                 -- clks since instrctn
-            ENRes       : in  std_logic;                            -- set SREG to R
+            BST         : in  std_logic;        -- '1' when in BST
+            sel         : in  flagSelector_t;   -- selects flag index
+            mask        : in  status_t;         -- masks unaffected flags
+            clkIdx      : in  clockIndex_t;     -- clks since instrctn
+            ENRes       : in  std_logic;        -- set SREG to R
 
-            TF          : out std_logic;                            -- always sent to regs
-            SREG        : out std_logic_vector(7 downto 0)          -- status register
+            TF          : out std_logic;        -- always sent to regs
+            SREG        : out status_t          -- status register
         );
     end component;
 
     -- Control unit which is needed to get from instruction to ALU out
     component ControlUnit is
         port (
-            clk         : in  std_logic;                    -- system clk
+            clk         : in  std_logic;        -- system clk
 
-            instruction : in  std_logic_vector(15 downto 0);-- instruction
+            instruction : in  instruction_t;    -- instruction
 
-            BLD         : out std_logic;                    -- '1' when BLD
-            BST         : out std_logic;                    -- '1' when BST
+            BLD         : out std_logic;        -- '1' when BLD
+            BST         : out std_logic;        -- '1' when BST
 
-            sel         : out std_logic_vector(2 downto 0); -- selects flag index
-            flagMask    : out std_logic_vector(7 downto 0); -- status bits affected
-            clkIdx      : out natural range 0 to 3;         -- clocks since instruction
-            ENRes       : out std_logic;                    -- set SREG to R
+            sel         : out flagSelector_t;   -- selects flag index
+            flagMask    : out status_t;         -- status bits affected
+            clkIdx      : out clockIndex_t;     -- clocks since instruction
+            ENRes       : out std_logic;        -- set SREG to R
 
-            immed       : out std_logic_vector(7 downto 0); -- immediate value
-            ENALU       : out std_logic_vector(1 downto 0); -- ALU operation type
-            ENImmed     : out std_logic;                    -- enable immed
-            ENCarry     : out std_logic;                    -- enable carry
-            ENInvOp     : out std_logic;                    -- negate operand in ALU
-            ENInvRes    : out std_logic;                    -- negate result in ALU
+            immed       : out data_t;           -- immediate value
+            ENALU       : out ALUSelector_t;    -- ALU operation type
+            ENImmed     : out std_logic;        -- enable immed
+            ENCarry     : out std_logic;        -- enable carry
+            ENInvOp     : out std_logic;        -- negate operand in ALU
+            ENInvRes    : out std_logic;        -- negate result in ALU
 
-            regSelA     : out std_logic_vector(4 downto 0); -- register A select
-            regSelB     : out std_logic_vector(4 downto 0); -- register B select
-            ENMul       : out std_logic;                    -- write to registers 0 and 1
-            ENSwap      : out std_logic;                    -- SWAP instruction
-            ENRegA      : out std_logic;                    -- enable register A
-            ENRegB      : out std_logic;                    -- enable register B
-            ENRegWr     : out std_logic;                    -- enable register writing
-            sourceSel   : out std_logic_vector(1 downto 0); -- used to choose data input
-            wordReg     : out std_logic_vector(2 downto 0); -- used to choose X Y Z regs
+            regSelA     : out regSelector_t;    -- register A select
+            regSelB     : out regSelector_t;    -- register B select
+            ENMul       : out std_logic;        -- write to registers 0 and 1
+            ENSwap      : out std_logic;        -- SWAP instruction
+            ENRegA      : out std_logic;        -- enable register A
+            ENRegB      : out std_logic;        -- enable register B
+            ENRegWr     : out std_logic;        -- enable register writing
+            sourceSel   : out regInSelector_t;  -- used to choose data input
+            wordReg     : out wordSelector_t;   -- used to choose X Y Z regs
 
             -- Data memory control
-            memRW       : out std_logic;                    -- read/write to memory
-            addrSel     : out std_logic_vector(1 downto 0); -- for address mux
-            addBefore   : out std_logic;                    -- dictates when to add to addr
-            decrement   : out std_logic;                    -- when low, decrementing
+            memRW       : out std_logic;        -- read/write to memory
+            addrSel     : out addrSelector_t;   -- for address mux
+            addBefore   : out std_logic;        -- dictates when to add to addr
+            decrement   : out std_logic;        -- when low, decrementing
 
             -- Stack pointer control
-            SPWr        : out std_logic                     -- write to stack ptr
+            SPWr        : out std_logic         -- write to stack ptr
         );
     end component;
 
     -- Signals required for passing around
-    signal reset        : std_logic                         := '1';
+    signal reset        : std_logic         := '1';
 
-    signal BLD          : std_logic                         := '0';
-    signal BST          : std_logic                         := '0';
+    signal BLD          : std_logic         := '0';
+    signal BST          : std_logic         := '0';
 
-    signal memIn      : std_logic_vector(7 downto 0)  := "00000000";
-    signal immedIn    : std_logic_vector(7 downto 0)  := "00000000";
-    signal sourceSel  : std_logic_vector(1 downto 0)  := "00";
+    signal memIn        : data_t            := "00000000";
+    signal immedIn      : data_t            := "00000000";
+    signal sourceSel    : regInSelector_t   := "00";
 
-    signal wordRegIn  : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal wordRegSel : std_logic_vector(2 downto 0)  := "000";
+    signal wordRegIn    : dataWord_t        := "0000000000000000";
+    signal wordRegSel   : wordSelector_t    := "000";
 
-    signal sel          : std_logic_vector(2 downto 0)      := "000";
-    signal flagMask     : std_logic_vector(7 downto 0)      := "00000000";
-    signal ENRes        : std_logic                         := '0';
+    signal sel          : flagSelector_t    := "000";
+    signal flagMask     : status_t          := "00000000";
+    signal ENRes        : std_logic         := '0';
 
-    signal immed        : std_logic_vector(7 downto 0)      := "00000000";
-    signal ENALU        : std_logic_vector(1 downto 0)      := "00";
-    signal ENImmed      : std_logic                         := '0';
-    signal ENCarry      : std_logic                         := '0';
-    signal ENInvOp      : std_logic                         := '0';
-    signal ENInvRes     : std_logic                         := '0';
+    signal immed        : data_t            := "00000000";
+    signal ENALU        : ALUSelector_t     := "00";
+    signal ENImmed      : std_logic         := '0';
+    signal ENCarry      : std_logic         := '0';
+    signal ENInvOp      : std_logic         := '0';
+    signal ENInvRes     : std_logic         := '0';
 
-    signal Rd0          : std_logic                         := '0';
-    signal Rd3          : std_logic                         := '0';
-    signal Rr3          : std_logic                         := '0';
-    signal Rd7          : std_logic                         := '0';
-    signal Rr7          : std_logic                         := '0';
+    signal Rd0          : std_logic         := '0';
+    signal Rd3          : std_logic         := '0';
+    signal Rr3          : std_logic         := '0';
+    signal Rd7          : std_logic         := '0';
+    signal Rr7          : std_logic         := '0';
 
-    signal R            : std_logic_vector(7 downto 0)      := "00000000";
-    signal Rdb          : std_logic                         := '0';
+    signal R            : data_t            := "00000000";
+    signal Rdb          : std_logic         := '0';
 
-    signal regSelA      : std_logic_vector(4 downto 0)      := "00000";
-    signal regSelB      : std_logic_vector(4 downto 0)      := "00000";
-    signal ENMul        : std_logic                         := '0';
-    signal ENSwap       : std_logic                         := '0';
-    signal ENRegA       : std_logic                         := '0';
-    signal ENRegB       : std_logic                         := '0';
-    signal ENRegWr      : std_logic                         := '0';
+    signal regSelA      : regSelector_t     := "00000";
+    signal regSelB      : regSelector_t     := "00000";
+    signal ENMul        : std_logic         := '0';
+    signal ENSwap       : std_logic         := '0';
+    signal ENRegA       : std_logic         := '0';
+    signal ENRegB       : std_logic         := '0';
+    signal ENRegWr      : std_logic         := '0';
 
-    signal clkIdx       : natural range 0 to 3              := 0;
+    signal clkIdx       : clockIndex_t      := 0;
 
-    signal TF           : std_logic                         := '0';
+    signal TF           : std_logic         := '0';
 
-    signal SREG         : std_logic_vector(7 downto 0)      := "00000000";
+    signal SREG         : status_t          := "00000000";
 
-    signal dataOutA     : std_logic_vector(7 downto 0)      := "00000000";
-    signal dataOutB     : std_logic_vector(7 downto 0)      := "00000000";
-    signal wordRegOut   : std_logic_vector(15 downto 0)     := "0000000000000000";
+    signal dataOutA     : data_t            := "00000000";
+    signal dataOutB     : data_t            := "00000000";
+    signal wordRegOut   : dataWord_t        := "0000000000000000";
 
     -- Data memory control
-    signal memRW        : std_logic                         := '0';
-    signal addrSel      : std_logic_vector(1 downto 0)      := "00";
-    signal addBefore    : std_logic                         := '0';
-    signal decrement    : std_logic                         := '0';
+    signal memRW        : std_logic         := '0';
+    signal addrSel      : addrSelector_t    := "00";
+    signal addBefore    : std_logic         := '0';
+    signal decrement    : std_logic         := '0';
 
     -- Stack pointer control
-    signal SPWr         : std_logic                         := '0';
+    signal SPWr         : std_logic         := '0';
 
 begin
 
@@ -375,6 +378,9 @@ use ieee.numeric_std.all;
 use std.textio.all;
 use ieee.std_logic_textio.all;
 
+library common;
+use common.common.all;
+
 entity REG_TESTBENCH is
 end REG_TESTBENCH;
 
@@ -384,11 +390,11 @@ architecture testbench of REG_TESTBENCH is
     component TEST_REG is
 
         port(
-            IR        :  in  std_logic_vector(15 downto 0);     -- Instruction Register
-            RegIn     :  in  std_logic_vector(7 downto 0);       -- input register bus
-            clk       :  in  std_logic;                          -- system clock
-            RegAOut   :  out std_logic_vector(7 downto 0);       -- register bus A out
-            RegBOut   :  out std_logic_vector(7 downto 0)        -- register bus B out
+            IR        :  in  instruction_t; -- Instruction Register
+            RegIn     :  in  data_t;        -- input register bus
+            clk       :  in  std_logic;     -- system clock
+            RegAOut   :  out data_t;        -- register bus A out
+            RegBOut   :  out data_t         -- register bus B out
         );
 
     end component;
@@ -397,11 +403,11 @@ architecture testbench of REG_TESTBENCH is
     file REG_vectors: text;
 
     -- All the variables we need
-    signal clk          : std_logic                     := '0';
-    signal IR           : std_logic_vector(15 downto 0) := "0000000000000000";
-    signal regIn        : std_logic_vector(7 downto 0)  := "00000000";
-    signal regAOut      : std_logic_vector(7 downto 0)  := "00000000";
-    signal regBOut      : std_logic_vector(7 downto 0)  := "00000000";
+    signal clk          : std_logic     := '0';
+    signal IR           : instruction_t := "0000000000000000";
+    signal regIn        : data_t        := "00000000";
+    signal regAOut      : data_t        := "00000000";
+    signal regBOut      : data_t        := "00000000";
 
     -- Signifies end of simulation
     signal END_SIM      : boolean := FALSE;
@@ -414,10 +420,10 @@ begin
     process
         -- Variables for reading register test file
         variable currLine       : line;
-        variable instruction    : std_logic_vector(15 downto 0);
-        variable nextRegIn      : std_logic_vector(7 downto 0);
-        variable expRegAOut     : std_logic_vector(7 downto 0);
-        variable expRegBOut     : std_logic_vector(7 downto 0);
+        variable instruction    : instruction_t;
+        variable nextRegIn      : data_t;
+        variable expRegAOut     : data_t;
+        variable expRegBOut     : data_t;
         variable delimiter      : character;
     begin
         -- Open the testcase file

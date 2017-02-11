@@ -1,8 +1,3 @@
--- bring in the necessary packages
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
-
 -----------------------------------------------------------------------------------------
 --
 -- stack.vhd
@@ -16,14 +11,14 @@ use ieee.std_logic_unsigned.all;
 --          System clock
 --      reset: std_logic
 --          Active low reset.  When active, this resets the stack pointer to all 1's
---      dataIn: std_logic_vector(15 downto 0)
+--      dataIn: address_t
 --          The data input to overwrite the stack pointer.
 --      ENWr: std_logic
 --          Active low.  When low, the stack pointer will latch what is on the dataIn
 --          line.
 --
 -- Outputs:
---      SP : std_logic_vector(15 downto 0)
+--      SP : address_t
 --          The stack pointer.  This points to the first unused block of memory in
 --          stack space.
 --
@@ -32,6 +27,14 @@ use ieee.std_logic_unsigned.all;
 --
 -----------------------------------------------------------------------------------------
 
+-- bring in the necessary packages
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+library common;
+use common.common.all;
+
 --
 -- entity status
 --
@@ -39,13 +42,13 @@ use ieee.std_logic_unsigned.all;
 --
 entity Stack is
     port (
-        clk         : in  std_logic;                            -- system clock
-        reset       : in  std_logic;                            -- active low reset
+        clk         : in  std_logic;        -- system clock
+        reset       : in  std_logic;        -- active low reset
 
-        dataIn      : in  std_logic_vector(15 downto 0);        -- new stack pointer
-        ENWr        : in  std_logic;                            -- when low, look at data
+        dataIn      : in  address_t;        -- new stack pointer
+        ENWr        : in  std_logic;        -- when low, look at data
 
-        SP          : out std_logic_vector(15 downto 0)         -- stack pointer
+        SP          : out address_t         -- stack pointer
     );
 end Stack;
 
@@ -55,7 +58,7 @@ end Stack;
 architecture update of Stack is
 
     -- The register containing the stack pointer
-    signal stackPointer : std_logic_vector(15 downto 0) := "1111111111111111";
+    signal stackPointer : address_t := "1111111111111111";
 
 begin
 
