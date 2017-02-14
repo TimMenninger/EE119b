@@ -37,10 +37,13 @@ package common is
     --
     -------------------------------------------------------------------------------------
 
-    -- Length of instruction register
+    -- Instructions
     subtype instruction_t   is std_logic_vector(15 downto 0);
 
-    -- Length of the status register
+    -- Testbench expects instructions to be opcode_word
+    subtype opcode_word     is std_logic_vector(15 downto 0);
+
+    -- Status
     subtype status_t        is std_logic_vector( 7 downto 0);
 
     -------------------------------------------------------------------------------------

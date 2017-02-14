@@ -1,8 +1,9 @@
 import sys
 from generate_values import *
 
-# Instructions where we don't write result back to register
-dontWriteRegs = [ "BCLR", "BSET", "BST", "CP", "CPC", "CPI", "MUL" ]
+# Instructions where we don't write result back to register.  The exceptions
+# are BLD SWAP and MOV, where registers are written to explicitly
+dontWriteRegs = [ "BCLR", "BSET", "BST", "CP", "CPC", "CPI", "MUL", "BLD", "SWAP", "MOV" ]
 
 # Two-clock instructions
 twoClocks = [ "ADIW", "SBIW", "MUL" ]
@@ -43,11 +44,19 @@ def generate(fIn, fOut):
         else:
             expA = inA
 
+        # MOV is special case
+        if (vals[0] == "MOV"):
+            registers[inA] = expB
+
         # If it's a word instruction, reflect that in operand
         if (vals[0] in [ "ADIW", "SBIW" ]):
             expA += 256 * registers[inA+1]
 
         nextRegIn, status = compute_result(vals[0], expA, expB, list(status))
+
+        if (vals[0] in [ "BLD", "SWAP" ]):
+            # Use the result to update register
+            registers[inA] = binary_str_to_int(nextRegIn)
 
         # Undo word correction
         if (vals[0] in [ "ADIW", "SBIW" ]):

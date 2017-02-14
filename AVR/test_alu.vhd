@@ -48,12 +48,12 @@ use common.common.all;
 entity  TEST_ALU  is
 
     port (
-        IR        :  in  address_t;     -- Instruction Register
-        OperandA  :  in  data_t;      -- first operand
-        OperandB  :  in  data_t;      -- second operand
-        clk       :  in  std_logic;                         -- system clk
-        Result    :  out data_t;      -- ALU result
-        StatReg   :  out status_t       -- status register
+        IR        :  in  opcode_word;                       -- Instruction Register
+        OperandA  :  in  std_logic_vector(7 downto 0);      -- first operand
+        OperandB  :  in  std_logic_vector(7 downto 0);      -- second operand
+        clock     :  in  std_logic;                         -- system clock
+        Result    :  out std_logic_vector(7 downto 0);      -- ALU result
+        StatReg   :  out std_logic_vector(7 downto 0)       -- status register
     );
 
 end  TEST_ALU;
@@ -133,6 +133,7 @@ architecture toplevel of TEST_ALU is
             Rdb         : in  std_logic;        -- Bit to set T to
 
             BST         : in  std_logic;        -- '1' when in BST
+            CPC         : in  std_logic;        -- '1' when in CPC
             sel         : in  flagSelector_t;   -- selects flag index
             mask        : in  status_t;         -- masks unaffected flags
             clkIdx      : in  clockIndex_t;     -- clks since instrctn
@@ -152,6 +153,7 @@ architecture toplevel of TEST_ALU is
 
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
+            CPC         : out std_logic;        -- '1' when CPC
 
             sel         : out flagSelector_t;   -- selects flag index
             flagMask    : out status_t;         -- status bits affected
@@ -213,6 +215,7 @@ architecture toplevel of TEST_ALU is
 
     signal BLD      : std_logic         := '0';
     signal BST      : std_logic         := '0';
+    signal CPC      : std_logic         := '0';
     signal clkIdx   : clockIndex_t      := 0;
 
     signal memIn      : data_t          := "00000000";
@@ -278,7 +281,7 @@ begin
 
     RegistersUUT : Registers
         port map (
-            clk,
+            clock,
             clkIdx,
 
             R,
@@ -308,7 +311,7 @@ begin
 
     StatusUUT : Status
         port map (
-            clk,
+            clock,
 
             R,
             Rd0,
@@ -319,6 +322,7 @@ begin
             Rdb,
 
             BST,
+            CPC,
             sel,
             flagMask,
             clkIdx,
@@ -330,12 +334,13 @@ begin
 
     ControlUUT : ControlUnit
         port map (
-            clk,
+            clock,
 
             IR,
 
             BLD,
             BST,
+            CPC,
 
             sel,
             flagMask,
@@ -395,12 +400,12 @@ architecture testbench of ALU_TESTBENCH is
     component TEST_ALU is
 
         port (
-            IR        :  in  instruction_t; -- Instruction Register
-            OperandA  :  in  data_t;        -- first operand
-            OperandB  :  in  data_t;        -- second operand
-            clk       :  in  std_logic;     -- system clock
-            Result    :  out data_t;        -- ALU result
-            StatReg   :  out status_t       -- status register
+            IR        :  in  opcode_word;                       -- Instruction Register
+            OperandA  :  in  std_logic_vector(7 downto 0);      -- first operand
+            OperandB  :  in  std_logic_vector(7 downto 0);      -- second operand
+            clock     :  in  std_logic;                         -- system clock
+            Result    :  out std_logic_vector(7 downto 0);      -- ALU result
+            StatReg   :  out std_logic_vector(7 downto 0)       -- status register
         );
 
     end component;
@@ -409,7 +414,7 @@ architecture testbench of ALU_TESTBENCH is
     file ALU_vectors: text;
 
     -- All the variables we need
-    signal clk          : std_logic     := '0';
+    signal clock        : std_logic     := '0';
     signal IR           : instruction_t := "0000000000000000";
     signal opA          : data_t        := "00000000";
     signal opB          : data_t        := "00000000";
@@ -422,7 +427,7 @@ architecture testbench of ALU_TESTBENCH is
 begin
 
     ALU_UUT : TEST_ALU
-        port map (IR, opA, opB, clk, result, status);
+        port map (IR, opA, opB, clock, result, status);
 
     DO_ALU_TEST: process
         -- Variables for reading ALU test file
@@ -502,14 +507,14 @@ begin
     begin
         -- only generate clock if still simulating
         if END_SIM = FALSE then
-            clk <= '1';
+            clock <= '1';
             wait for 25 ns;
         else
             wait;
         end if;
 
         if END_SIM = FALSE then
-            clk <= '0';
+            clock <= '0';
             wait for 25 ns;
         else
             wait;

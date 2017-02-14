@@ -27,6 +27,8 @@
 --          '1' when BLD instruction occurring.
 --      BST : std_logic
 --          '1' when BST instruction occurring.
+--      CPC : std_logic
+--          '1' when CPC instruction occurring.
 --      sel : flagSelector_t
 --          Selects flag index and register index for bit setting
 --      flagMask : status_t
@@ -115,6 +117,7 @@ entity ControlUnit is
 
         BLD         : out std_logic;        -- '1' when BLD
         BST         : out std_logic;        -- '1' when BST
+        CPC         : out std_logic;        -- '1' when CPC
 
         -- Status control
         sel         : out flagSelector_t;   -- selects flag index
@@ -200,6 +203,7 @@ begin
         -----------------------------------------------------------------------------
         BLD      <= '0';            -- Not currently in BLD instruction
         BST      <= '0';            -- Not currently in BST instruction
+        CPC      <= '0';            -- Not currently in CPC instruction
         sel      <= "000";          -- Most common value
         flagMask <= "11111111";     -- Change no flags by default
         ENRes    <= '1';            -- Rare that ALU sets SREG
@@ -276,6 +280,9 @@ begin
             -- Values used by ALU
             ENImmed  <= '0';            -- Usually not using immediate value
 
+            -- Register select
+            regSelA <= "11" & instruction(5 downto 4) & "0";
+
             -- Writing low byte (first) to regSelA and second byte to regSelA + 1
             -- Rd in bits 5-4, K in bits 7-6, 3-0
             case clkCnt is
@@ -284,7 +291,6 @@ begin
                     --      immed: Add value from instruction
                     --      regSelA: From instruction
                     immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
-                    regSelA <= "000" & instruction(5 downto 4);
                 when others =>
                     -- On second clock:
                     --      ENCarry: Use carry from low byte add
@@ -292,9 +298,7 @@ begin
                     --      regSelA: One greater than from instruction
                     ENCarry <= '0';
                     immed <= "00000000";
-                    regSelA <= std_logic_vector(to_unsigned(
-                        conv_integer(instruction(5 downto 4)) + 1, regSelA'length
-                    ));
+                    regSelA(0) <= '1';
             end case;
 
             -- Always reading something from register A
@@ -331,7 +335,7 @@ begin
             ENALU    <= "10";           -- Use AND
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
+            regSelA <= "1" & instruction(7 downto 4);
 
             -- Using immediate value, want to enable it
             ENImmed <= '0';
@@ -483,6 +487,9 @@ begin
             -- Values used by status
             sel <= "011";
 
+            -- Tell status register we are CPC'ing
+            CPC <= '1';
+
             -- Values used by ALU
             ENInvOp  <= '0';            -- Invert operand to add a negative
             ENInvRes <= '0';            -- Invert result to finish two's comp
@@ -512,7 +519,7 @@ begin
 
             -- Values used by registers
             -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
+            regSelA <= "1" & instruction(7 downto 4);
             immed <= instruction(11 downto 8) & instruction(3 downto 0);
 
             -- We only read on compares
@@ -525,7 +532,7 @@ begin
         -- Decrement
         if (std_match(instruction, OpDEC))   then
             -- Trick machine into subtracting 1 (adding -1)
-            sel <= "101";
+            sel <= "100";
 
             -- Values used by ALU
             immed    <= "00000001";     -- Subracting 1
@@ -587,6 +594,9 @@ begin
 
         -- Logical shift right
         if (std_match(instruction, OpLSR))   then
+            -- Select how to set flags
+            sel <= "001";
+
             ENALU <= "01"; -- use shifter
 
             -- Rd in bits 8-4
@@ -670,7 +680,7 @@ begin
             ENInvRes <= '0';            -- Usually not inverting ALU outputs
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
+            regSelA <= "1" & instruction(7 downto 4);
             immed <= instruction(11 downto 8) & instruction(3 downto 0);
             ENImmed  <= '0';            -- Instruction uses immediate
 
@@ -735,7 +745,7 @@ begin
             ENCarry  <= '0';            -- Using carry flag
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
+            regSelA <= "1" & instruction(7 downto 4);
             immed <= instruction(11 downto 8) & instruction(3 downto 0);
             ENImmed  <= '0';            -- Subtract immediate
 
@@ -760,6 +770,9 @@ begin
             -- Values used by ALU
             ENImmed  <= '0';            -- Usually not using immediate value
 
+            -- Register select
+            regSelA <= "11" & instruction(5 downto 4) & "0";
+
             -- Writing low byte (first) to regSelA and second byte to regSelA + 1
             -- Rd in bits 5-4, K in bits 7-6, 3-0
             case clkCnt is
@@ -770,7 +783,6 @@ begin
                     --      ENInvOp: We add two's complement on low byte
                     --      ENInvRes: Finish two's complement
                     immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
-                    regSelA <= "000" & instruction(5 downto 4);
                     ENInvOp <= '0';
                     ENInvRes <= '0';
                 when others =>
@@ -782,9 +794,7 @@ begin
                     ENInvOp <= '0';
                     ENInvRes <= '0';
                     immed <= "00000000";
-                    regSelA <= "00" & std_logic_vector(to_unsigned(
-                        conv_integer(instruction(5 downto 4)) + 1, 3
-                    ));
+                    regSelA(0) <= '1';
             end case;
 
             sel <= "011";
@@ -830,7 +840,7 @@ begin
             ENInvRes <= '0';            -- Add one to output to finish two's comp
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
-            regSelA <= "0" & instruction(7 downto 4);
+            regSelA <= "1" & instruction(7 downto 4);
             immed <= instruction(11 downto 8) & instruction(3 downto 0);
             ENImmed  <= '0';            -- Using immediate
 
@@ -1138,7 +1148,7 @@ begin
         -- LDI Rd, k
         if (std_match(instruction, OpLDI))  then
             -- The register is implied by bits 4-7
-            regSelA <= "0" & instruction(7 downto 4);
+            regSelA <= "1" & instruction(7 downto 4);
 
             -- Writing to register A
             ENRegWr <= '0';

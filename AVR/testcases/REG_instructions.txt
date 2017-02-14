@@ -17,7 +17,7 @@ BCLR 5 0
 BCLR 6 0
 BCLR 7 0
 
-EOR 0 0 -- set all registers to 0
+EOR 0 0 -- set all registers to 0 so we know their values too
 EOR 1 1
 EOR 2 2
 EOR 3 3
@@ -55,65 +55,60 @@ ADD 0 0 -- test add.  next tests iterate on dest register so we have real values
 ADD 0 1 -- add 255 to 0
 ADD 1 1 -- add 255 to 255
 
-EOR 0 0 -- Put 0 into registers 0 and 1
-EOR 1 1
-ADIW 0 128 -- put 128 into reg 0
-ADIW 1 100 -- put 100 into reg 1
+EOR 24 24 -- Put 0 into registers 24 and 26
+EOR 26 26
+ADIW 24 28 -- put 28 into reg 24
+ADIW 26 10 -- put 10 into reg 26
 
 ADC 2 0 -- test adc. carry is clear here
 BSET 0 0 -- set carry for next adc test
 ADC 3 1 -- test adc with carry bit set
 
-EOR 0 0 -- clear registers 0 - 3
-EOR 1 1
-EOR 2 2
-EOR 3 3
+EOR 24 24
+ADIW 24 31 -- doesn't propagate to reg 22 yet
+ORI 24 255
+ADIW 24 31 -- should propagate to reg 25
+AND 25 25
 
-ADIW 1 255 -- doesn't propagate to reg 2
-ADIW 1 255 -- should propagate to register 2
-ADIW 1 255 -- should add to register 2 and not set it like previous instruction
-ADIW 2 1 -- make sure this doesn't work in sets of 2 registers
+ORI 21 255 -- Load 255 into register 21
+AND 5 21 -- reg 21 contains 255. reg 5 shouldn't change
+AND 5 22 -- arbitrary
+AND 6 21 -- reg 6 is 0... should come to 0
 
-ORI 1 255 -- Load 255 into register 1
-AND 5 1 -- reg 1 contains 255. reg 5 shouldn't change
-AND 5 2 -- arbitrary
-AND 6 1 -- reg 6 is 0... should come to 0
-
-ORI 7 255 -- next instructions are just to set register values
-ORI 8 0 -- alternating 0, 255, arbitrary
-ORI 9 25
-ORI 10 255
-ORI 11 0
-ORI 12 101
-ORI 13 255
-ORI 14 0
-ORI 15 150
+ORI 16 255 -- next instructions are just to set register values
+MOV 7 16 -- I goofed on the first time around, thinking immediates used regs 0-15
+ORI 16 0 -- alternating 0, 255, arbitrary
+MOV 8 16
+ORI 16 25
+MOV 9 16
+ORI 16 255
+MOV 10 16
+ORI 16 0
+MOV 11 16
+ORI 16 101
+MOV 12 16
+ORI 16 255
+MOV 13 16
+ORI 16 0
+MOV 14 16
+ORI 16 150
+MOV 15 16
 
 DEC 16 0 -- makes it 255
-EOR 5 5 -- Clear reg 5, OR 215 into it, OR that into reg 18
-ORI 5 215
-OR 18 5
+ORI 18 215 -- OR 215 into reg 18
 DEC 19 0
-EOR 5 5 -- Clear reg 5, OR 91 into it, OR that into reg 21
-ORI 5 91
-OR 21 5
+ORI 21 91 -- OR 91 into reg 21
 DEC 22 0
-EOR 5 5 -- Clear reg 5, OR 180 into it, OR that into reg 24
-ORI 5 180
-OR 24 5
+ORI 24 180 -- OR 180 into reg 24
 DEC 25 0
-EOR 5 5 -- Clear reg 5, OR 200 into it, OR that into reg 27
-ORI 5 200
-OR 27 5
+ORI 27 200 -- OR 200 into reg 27
 DEC 28 0
-EOR 5 5 -- Clear reg 5, OR 44 into it, OR that into reg 30
-ORI 5 44
-OR 30 5
+ORI 30 44 -- OR 44 into reg 30
 DEC 31 0
 
-ANDI 7 45 -- reg 7 has 255
-ANDI 8 211 -- reg 8 has 0
-ANDI 9 24 -- reg 9 has 25
+ANDI 16 45 -- reg 7 has 255
+ANDI 17 211 -- reg 8 has 0
+ANDI 18 24 -- reg 9 has 25
 
 ASR 10 0 -- reg 10 has 255
 ASR 11 0 -- reg 11 has 0
@@ -130,13 +125,21 @@ BCLR 7 0
 
 EOR 0 0 -- Start register with 0's and fill in 1's (we BSET 6 above)
 BLD 0 0 -- testing load from each bit
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 1
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 2
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 3
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 4
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 5
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 6
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 BLD 0 7
+AND 0 0 -- BLD done in regs, so we need to ensure that it worked
 
 BST 12 0 -- testing load T from each bit of arbitrary register
 BST 12 1
@@ -159,31 +162,43 @@ BCLR 0 0 -- clear carry for first test
 CPC 15 15
 BSET 0 0 -- set carry for same test
 CPC 15 15
+EOR 13 13 -- Set up test to show that when zero, the ZF doesn't change
+EOR 14 14
+INC 14 0 -- Now have R14 = 1, R13 = 0, CF = 1 (1 - 0 - 1 = 0)
+BSET 0 0 -- Set carry flag
+BCLR 1 0 -- Clear zero flag (shouldn't set when CPC gives 0)
+CPC 14 13 -- shouldn't set ZF
 
-EOR 11 11
-ORI 11 91 -- put 91 into reg 11
-CPI 11 0 -- reg 11 contains 91
-CPI 11 91
-CPI 11 92
+EOR 21 21
+ORI 21 91 -- put 91 into reg 21
+CPI 21 0 -- reg 21 contains 91
+CPI 21 91
+CPI 21 92
 DEC 14 0 -- decrement 0 to show it goes to 255
 DEC 15 0 -- arbitrary case
 
 EOR 15 21 -- tested eor x x above
 EOR 14 15 -- eor 0 x
 EOR 15 14 -- commutative
-EOR 13 15 -- eor $ff x
+EOR 13 15 -- eor $ff x inverts x
+EOR 13 15 -- eor $ff x inverts again, this shows that it detects identical instructions
 
-INC 16 0 -- reg 16 contains 255
-INC 17 0 -- reg 17 contains 0
-INC 18 0 -- reg 18 contains 215
+INC 7 0 -- reg 7 contains 255
+INC 8 0 -- reg 8 contains 0
+INC 9 0 -- reg 9 contains 25
 
 LSR 19 0 -- reg 19 contains $ff
 LSR 20 0 -- reg 20 contains 0
 LSR 21 0 -- arbitrary case, 91
 
-MUL 17 18 -- 1 and 216
-MUL 16 18 -- 0 and 216
-MUL 18 18 -- should spill into reg 1 (251 and 251)
+ANDI 17 0
+ORI 17 1
+EOR 16 16
+MUL 17 18 -- 1 and 26
+MUL 16 18 -- 0 and 26
+ANDI 18 0
+ORI 18 199
+MUL 18 18 -- should spill into reg 1
 
 NEG 16 0 -- negative 0 is 0
 NEG 17 0 -- negative 1 gives $ff
@@ -193,11 +208,12 @@ OR 20 19 -- $ff or 0, tests 0 and $ff at once
 OR 20 21 -- 45 or $ff gives $ff
 OR 19 21 -- 0 or 45 gives 45
 
-EOR 5 5
-ORI 5 0 -- test or with 0
-ORI 5 255 -- test or with $ff
-ORI 5 45 -- test or with itself
-ORI 5 100 -- arbitrary case
+EOR 25 25
+ORI 25 0 -- test or with 0
+ORI 25 255 -- test or with $ff
+ORI 25 45 -- test or with itself
+ANDI 25 201 -- arbitrary case setup
+ORI 25 100 -- arbitrary case
 
 BCLR 0 0 -- clear carry for first tests
 ROR 23 0 -- ROR 0 keeps CF clear
@@ -214,47 +230,115 @@ SBC 25 23 -- $ff - 0 - 1
 BSET 0 0
 SBC 23 23 -- 0 - 0 - 1
 
-EOR 5 5 -- Put $fe into reg 5
-DEC 5 0
-DEC 5 0
+EOR 25 25 -- Put $fe into reg 25
+DEC 25 0
+DEC 25 0
 BCLR 0 0 -- clear carry for sbci tests
-SBCI 5 0 -- $fe - 0
+SBCI 25 0 -- $fe - 0
 BSET 0 0
-SBCI 5 0 -- $fe - 0 - 1
-EOR 3 3 -- clear reg 3
+SBCI 25 0 -- $fe - 0 - 1
+EOR 16 16 -- clear reg 16
 BSET 0 0 -- set carry
-SBCI 3 0 -- 0 - 0 - 1
-SBCI 14 100 -- arbitrary case
+SBCI 16 0 -- 0 - 0 - 1
+SBCI 18 100 -- arbitrary case
 
-EOR 0 0 -- clear registers 0 1 and 2 for SBIW, which needs to be reg 0 - 15
-EOR 1 1
-EOR 2 2
-ADIW 2 123 -- arbitrary value into reg 2
-SBIW 0 0 -- 0 - 0
-SBIW 0 1 -- 0 - 1, sets reg 1 to $ff
-SBIW 1 100 -- $ff - 100, arbitrary and shows that value was written to reg 1
+EOR 26 26 -- clear registers 26 28 and 30 for SBIW
+EOR 28 28
+EOR 30 30
+ADIW 30 23 -- arbitrary value into reg 30
+SBIW 26 0 -- 0 - 0
+SBIW 26 1 -- 0 - 1, sets reg 1 and reg 0 to $ff
+SBIW 28 25 -- $ff - 25, arbitrary and shows that value was written to reg 21
 
 SUB 26 26 -- 0 - 0
 SUB 27 28 -- 200 - 255 tests wraparound
 SUB 28 26 -- 255 - 0 tests minus nothing
 SUB 28 28 -- 255 - 255 tests minus itself
 
-EOR 9 9
-EOR 10 10
-ORI 10 44
-EOR 11 11
-DEC 11 0
-SUBI 9 0 -- 0 - 0
-SUBI 9 1 -- 0 - 1
-SUBI 10 40 -- 44 - 40 arbitrary case without wraparound
-SUBI 10 12 -- 4 - 12 arbitrary case with wraparound
-SUBI 11 128 -- $ff - 128 arbitrary subtract from all 1's
+EOR 19 19 -- Set up regs 19-21 for testing SUBI
+EOR 20 20
+ORI 20 44
+EOR 21 21
+DEC 21 0
+SUBI 19 0 -- 0 - 0
+SUBI 19 1 -- 0 - 1
+SUBI 20 40 -- 44 - 40 arbitrary case without wraparound
+SUBI 20 12 -- 4 - 12 arbitrary case with wraparound
+SUBI 21 128 -- $ff - 128 arbitrary subtract from all 1's
 
 SWAP 30 0 -- Just doing something random to test reg 30 and reg 21
+AND 30 30 -- SWAP done in regs, so we need to ensure that it worked
 SWAP 21 0
+AND 21 21 -- SWAP done in regs, so we need to ensure that it worked
 
 EOR 29 29
 SWAP 29 0 -- should be 0
+AND 29 29 -- SWAP done in regs, so we need to ensure that it worked
 DEC 29 0
 SWAP 29 0 -- should be $ff
+AND 29 29 -- SWAP done in regs, so we need to ensure that it worked
 SWAP 31 0 -- arbitrary
+AND 31 31 -- SWAP done in regs, so we need to ensure that it worked
+
+EOR 0 0 -- putting a bunch of arbitrary SBIW, ADIW and MUL because they were the most
+EOR 1 1 -- bug-prone. First clear a few registers
+EOR 24 24
+EOR 26 26
+
+ORI 24 123
+ORI 26 39
+MOV 2 24
+MOV 3 26
+MUL 2 3
+
+ADIW 24 13
+SBIW 26 30
+ADIW 26 4
+SBIW 24 24
+MOV 2 24
+MOV 3 26
+MUL 2 3
+
+ADIW 24 11
+SBIW 26 20
+ADIW 26 2
+SBIW 24 14
+MOV 2 24
+MOV 3 26
+MUL 2 3
+
+ADIW 24 15
+SBIW 26 9
+ADIW 26 27
+SBIW 24 29
+MOV 2 24
+MOV 3 26
+MUL 2 3
+
+ADIW 24 7
+SBIW 26 6
+ADIW 26 12
+SBIW 24 25
+MOV 2 24
+MOV 3 26
+MUL 2 3
+
+ORI 24 255
+ORI 26 255
+ADIW 24 14
+ANDI 24 0
+ANDI 26 0
+SBIW 24 15
+MOV 2 24
+MOV 3 26
+MUL 2 3
+
+EOR 23 23 -- Replicating DEC 23 with R23 = 0x80
+BSET 6 0 -- Set T flag
+BLD 23 7 -- Move the set T flag into highest bit of R23
+DEC 23 0
+
+EOR 0 0 -- Replicating LSR 0 with R0 = 0x80
+BSET 6 0 -- Set T flag
+BLD 0 7 -- Move the set T flag into highest bit of R23
+LSR 0 0

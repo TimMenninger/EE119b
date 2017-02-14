@@ -28,7 +28,7 @@
 --  Inputs:
 --    IR      - Instruction Register (16 bits)
 --    RegIn   - input to the register array (8 bits)
---    clk     - the system clk
+--    clock     - the system clock
 --
 --  Outputs:
 --    RegAOut - register bus A output (8 bits), eventually will connect to ALU
@@ -46,11 +46,11 @@ use common.common.all;
 
 entity  TEST_REG  is
     port(
-        IR       :  in  instruction_t;  -- Instruction Register
-        RegIn    :  in  data_t;         -- input register bus
-        clk      :  in  std_logic;      -- system clk
-        RegAOut  :  out data_t;         -- register bus A out
-        RegBOut  :  out data_t          -- register bus B out
+        IR       :  in  opcode_word;                        -- Instruction Register
+        RegIn    :  in  std_logic_vector(7 downto 0);       -- input register bus
+        clock    :  in  std_logic;                          -- system clock
+        RegAOut  :  out std_logic_vector(7 downto 0);       -- register bus A out
+        RegBOut  :  out std_logic_vector(7 downto 0)        -- register bus B out
     );
 end  TEST_REG;
 
@@ -85,7 +85,7 @@ architecture toplevel of TEST_REG is
 
     component Registers is
         port (
-            clk         : in  std_logic;        -- system clk
+            clk         : in  std_logic;        -- system clock
             clkIdx      : in  clockIndex_t;     -- number of clocks since instr
 
             ALUIn       : in  data_t;           -- data input from ALU
@@ -118,7 +118,7 @@ architecture toplevel of TEST_REG is
     -- The status register is updated by the ALU
     component Status is
         port (
-            clk         : in  std_logic;        -- system clk
+            clk         : in  std_logic;        -- system clock
 
             R           : in  data_t;           -- result from ALU
             Rd0         : in  std_logic;        -- bit 0 of operand A
@@ -129,6 +129,7 @@ architecture toplevel of TEST_REG is
             Rdb         : in  std_logic;        -- Bit to set T to
 
             BST         : in  std_logic;        -- '1' when in BST
+            CPC         : in  std_logic;        -- '1' when CPC
             sel         : in  flagSelector_t;   -- selects flag index
             mask        : in  status_t;         -- masks unaffected flags
             clkIdx      : in  clockIndex_t;     -- clks since instrctn
@@ -142,12 +143,13 @@ architecture toplevel of TEST_REG is
     -- Control unit which is needed to get from instruction to ALU out
     component ControlUnit is
         port (
-            clk         : in  std_logic;        -- system clk
+            clk         : in  std_logic;        -- system clock
 
             instruction : in  instruction_t;    -- instruction
 
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
+            CPC         : out std_logic;        -- '1' when CPC
 
             sel         : out flagSelector_t;   -- selects flag index
             flagMask    : out status_t;         -- status bits affected
@@ -187,6 +189,7 @@ architecture toplevel of TEST_REG is
 
     signal BLD          : std_logic         := '0';
     signal BST          : std_logic         := '0';
+    signal CPC          : std_logic         := '0';
 
     signal memIn        : data_t            := "00000000";
     signal immedIn      : data_t            := "00000000";
@@ -246,12 +249,13 @@ begin
 
     ControlUUT : ControlUnit
         port map (
-            clk,
+            clock,
 
             IR,
 
             BLD,
             BST,
+            CPC,
 
             sel,
             flagMask,
@@ -285,7 +289,7 @@ begin
 
     RegisterUUT : Registers
         port map (
-            clk,      -- Test entity input
+            clock,      -- Test entity input
             clkIdx,
 
             RegIn,
@@ -315,7 +319,7 @@ begin
 
     StatusUUT : Status
         port map (
-            clk,
+            clock,
 
             R,
             Rd0,
@@ -326,6 +330,7 @@ begin
             Rdb,
 
             BST,
+            CPC,
             sel,
             flagMask,
             clkIdx,
@@ -390,11 +395,11 @@ architecture testbench of REG_TESTBENCH is
     component TEST_REG is
 
         port(
-            IR        :  in  instruction_t; -- Instruction Register
-            RegIn     :  in  data_t;        -- input register bus
-            clk       :  in  std_logic;     -- system clock
-            RegAOut   :  out data_t;        -- register bus A out
-            RegBOut   :  out data_t         -- register bus B out
+            IR       :  in  opcode_word;                        -- Instruction Register
+            RegIn    :  in  std_logic_vector(7 downto 0);       -- input register bus
+            clock    :  in  std_logic;                          -- system clock
+            RegAOut  :  out std_logic_vector(7 downto 0);       -- register bus A out
+            RegBOut  :  out std_logic_vector(7 downto 0)        -- register bus B out
         );
 
     end component;
@@ -403,7 +408,7 @@ architecture testbench of REG_TESTBENCH is
     file REG_vectors: text;
 
     -- All the variables we need
-    signal clk          : std_logic     := '0';
+    signal clock        : std_logic     := '0';
     signal IR           : instruction_t := "0000000000000000";
     signal regIn        : data_t        := "00000000";
     signal regAOut      : data_t        := "00000000";
@@ -415,7 +420,7 @@ architecture testbench of REG_TESTBENCH is
 begin
 
     REG_UUT : TEST_REG
-        port map (IR, regIn, clk, regAOut, regBOut);
+        port map (IR, regIn, clock, regAOut, regBOut);
 
     process
         -- Variables for reading register test file
@@ -475,14 +480,14 @@ begin
     begin
         -- only generate clock if still simulating
         if END_SIM = FALSE then
-            clk <= '1';
+            clock <= '1';
             wait for 25 ns;
         else
             wait;
         end if;
 
         if END_SIM = FALSE then
-            clk <= '0';
+            clock <= '0';
             wait for 25 ns;
         else
             wait;

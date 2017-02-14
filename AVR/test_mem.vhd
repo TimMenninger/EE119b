@@ -49,14 +49,14 @@ use common.common.all;
 entity  TEST_MEM  is
 
     port (
-        IR      :  in     address_t;    -- Instruction Register
-        ProgDB  :  in     address_t;    -- second word of instr
-        Reset   :  in     std_logic;    -- system reset signal
-        clk     :  in     std_logic;    -- system clock
-        DataAB  :  out    address_t;    -- data address bus
-        DataDB  :  inout  data_t;       -- data data bus
-        DataRd  :  out    std_logic;    -- data read
-        DataWr  :  out    std_logic     -- data write
+        IR      :  in     opcode_word;                      -- Instruction Register
+        ProgDB  :  in     std_logic_vector(15 downto 0);    -- second word of instruction
+        Reset   :  in     std_logic;                        -- system reset signal (active low)
+        clock   :  in     std_logic;                        -- system clock
+        DataAB  :  out    std_logic_vector(15 downto 0);    -- data address bus
+        DataDB  :  inout  std_logic_vector(7 downto 0);     -- data data bus
+        DataRd  :  out    std_logic;                        -- data read (active low)
+        DataWr  :  out    std_logic                         -- data write (active low)
     );
 
 end  TEST_MEM;
@@ -66,7 +66,7 @@ architecture toplevel of TEST_MEM is
     -- Registers that we sometimes write to
     component Registers is
         port (
-            clk         : in  std_logic;        -- system clk
+            clk         : in  std_logic;        -- system clock
             clkIdx      : in  clockIndex_t;     -- number of clocks since instr
 
             ALUIn       : in  data_t;           -- data input from ALU
@@ -99,7 +99,7 @@ architecture toplevel of TEST_MEM is
     -- Control unit which is needed to get from instruction to ALU out
     component ControlUnit is
         port (
-            clk         : in  std_logic;        -- system clk
+            clk         : in  std_logic;        -- system clock
 
             instruction : in  address_t;        -- instruction
 
@@ -223,7 +223,7 @@ begin
 
     RegistersUUT : Registers
         port map (
-            clk,
+            clock,
             clkIdx,
 
             "00000000", -- What would otherwise be result from ALU
@@ -253,7 +253,7 @@ begin
 
     ControlUUT : ControlUnit
         port map (
-            clk,
+            clock,
 
             IR,
 
@@ -292,7 +292,7 @@ begin
 
     MemoryUUT : MemoryUnit
         port map (
-            clk,
+            clock,
             clkIdx,
 
             wordRegOut,
@@ -316,7 +316,7 @@ begin
     -- Stack pointer
     StackPointer : Stack
         port map (
-            clk,
+            clock,
             reset,
 
             addrOut,
@@ -357,7 +357,7 @@ architecture testbench of MEM_TESTBENCH is
             IR      :  in     address_t;    -- Instruction Register
             ProgDB  :  in     address_t;    -- second word of instr
             Reset   :  in     std_logic;    -- system reset signal
-            clk     :  in     std_logic;    -- system clock
+            clock   :  in     std_logic;    -- system clock
             DataAB  :  out    address_t;    -- data address bus
             DataDB  :  inout  data_t;       -- data data bus
             DataRd  :  out    std_logic;    -- data read
@@ -369,7 +369,7 @@ architecture testbench of MEM_TESTBENCH is
     file MEM_vectors: text;
 
     -- All the variables we need
-    signal clk          : std_logic         := '0';
+    signal clock        : std_logic         := '0';
     signal IR           : address_t         := "0000000000000000";
     signal ProgDB       : address_t         := "0000000000000000";
     signal Reset        : std_logic         := '0';
@@ -384,7 +384,7 @@ architecture testbench of MEM_TESTBENCH is
 begin
 
     MEM_UUT : TEST_MEM
-        port map (IR, ProgDB, Reset, clk, DataAB, DataDB, DataRd, DataWr);
+        port map (IR, ProgDB, Reset, clock, DataAB, DataDB, DataRd, DataWr);
 
     process
         -- Variables for reading register test file
@@ -503,14 +503,14 @@ begin
     begin
         -- only generate clock if still simulating
         if END_SIM = FALSE then
-            clk <= '1';
+            clock <= '1';
             wait for 25 ns;
         else
             wait;
         end if;
 
         if END_SIM = FALSE then
-            clk <= '0';
+            clock <= '0';
             wait for 25 ns;
         else
             wait;

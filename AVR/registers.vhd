@@ -235,9 +235,8 @@ begin
 
             if (ENSwap = '0') then
                 -- Swap nibbles
-                regs(conv_integer(regSelA))(7 downto 4) <=
-                    regs(conv_integer(regSelA))(3 downto 0);
-                regs(conv_integer(regSelA))(3 downto 0) <=
+                regs(conv_integer(regSelA)) <=
+                    regs(conv_integer(regSelA))(3 downto 0) &
                     regs(conv_integer(regSelA))(7 downto 4);
             end if;
 

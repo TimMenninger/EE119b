@@ -161,7 +161,7 @@ def compute_result(instruction, opA, opB, status):
         idx = 3
         flagMask = [1,1,0,0,0,0,0,0];
     if (instruction == "DEC"):
-        idx = 5
+        idx = 4
         res = int_to_binary(opA - 1, 8)
         flagMask = [1,1,1,0,0,0,0,1];
     if (instruction == "EOR"):
@@ -173,6 +173,7 @@ def compute_result(instruction, opA, opB, status):
         idx = 5
         flagMask = [1,1,1,0,0,0,0,1];
     if (instruction == "LSR"):
+        idx = 1
         res = int_to_binary(opA, 8)
         res[1:] = res[:7]
         res[0] = 0
@@ -274,6 +275,8 @@ def compute_result(instruction, opA, opB, status):
 
     # Zero flag
     ZF = (R == [ 0 ] * len(R))
+    if (ZF and instruction == "CPC"):
+        ZF = status[Z]
 
     # Carry flag
     CF[0] = (Rd7 == 1 and Rr7 == 1) or \
@@ -315,6 +318,8 @@ def compute_instruction(instruction, opA, opB):
     if (opA != None):
         opAList = int_to_binary(opA, 8)
     idxA = len(opAList) - 1
+    if (instruction in [ "ADIW", "SBIW" ]):
+        idxA -= 1
 
     # Get operand B if it exists
     opBList = []

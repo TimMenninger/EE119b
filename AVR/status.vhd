@@ -34,6 +34,8 @@
 --          Bit b of register being used to set T flag
 --      BST : std_logic
 --          Set to 1 when we are executing BST instruction
+--      CPC : std_logic
+--          '1' when CPC instruction occurring.
 --      sel : std_logic_vector(2 downto 0)
 --          Index to the array of flag computations used to propagate flag to
 --          output
@@ -78,6 +80,7 @@ entity Status is
         Rdb         : in  std_logic;        -- Bit to set T to
 
         BST         : in  std_logic;        -- 1 when BST instruction
+        CPC         : in  std_logic;        -- 1 when CPC instruction
         sel         : in  flagSelector_t;   -- selects flag index
         mask        : in  status_t;         -- masks unaffected flags
         clkIdx      : in  clockIndex_t;     -- clocks since instrctn
@@ -174,9 +177,10 @@ begin
 
     -- Zero flag
     ZF <=
-        '1' when
-            (R = "00000000" and clkIdx = 0)
+        status(Z) when
+            (R = "00000000" and CPC = '1')
         else '1' when
+            (R = "00000000" and clkIdx = 0) or
             (R = "00000000" and clkIdx = 1 and status(Z) = '1')
         else '0';
 

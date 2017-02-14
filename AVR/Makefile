@@ -36,7 +36,7 @@ analyze:
 	ghdl -a --ieee=synopsys -fexplicit $(shell find . ! -name "opcodes.vhd" ! -name "common.vhd" -name "*.vhd")
 
 tidy:
-	rm -rf *.o *.cf *.ucf *.lst .DS_Store testcases/__pycache__
+	rm -rf *.o *.cf *.ucf *.lst .DS_Store testcases/__pycache__ testcases/*.pyc ../*.pyc
 
 clean:
-	rm -rf *.o *.cf *.ucf *.lst *.vcd $(MEM_TB_FILE) $(ALU_TB_FILE) $(REG_TB_FILE) testcases/__pycache__
+	rm -rf *.o *.cf *.ucf *.lst *.vcd $(MEM_TB_FILE) $(ALU_TB_FILE) $(REG_TB_FILE) testcases/__pycache__ testcases/*.pyc ../*.pyc
