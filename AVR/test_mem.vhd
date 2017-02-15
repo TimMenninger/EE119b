@@ -135,7 +135,11 @@ architecture toplevel of TEST_MEM is
             decrement   : out std_logic;        -- when low, decrementing
 
             -- Stack pointer control
-            SPWr        : out std_logic         -- write to stack ptr
+            SPWr        : out std_logic;        -- write to stack ptr
+
+            -- Instruction pointer control
+            fetch       : out std_logic;        -- fetch enable
+            memCin      : out std_logic         -- Cin to memory adder
         );
     end component;
 
@@ -150,6 +154,7 @@ architecture toplevel of TEST_MEM is
             IRAddr      : in  address_t;        -- address from instruction
             immed       : in  addrOffset_t;     -- memory address offset
             decrement   : in  std_logic;        -- when low, decrement
+            memCin      : in  std_logic;        -- Cin to memory address adder
 
             addrSel     : in  addrSelector_t;   -- chooses which address
             RW          : in  std_logic;        -- read/not write
@@ -219,6 +224,9 @@ architecture toplevel of TEST_MEM is
     signal SP       : address_t         := "0000000000000000";
     signal addrOut  : address_t         := "0000000000000000";
 
+    -- Instruction control
+    signal memCin   : std_logic         := '0';
+
 begin
 
     RegistersUUT : Registers
@@ -287,7 +295,9 @@ begin
             addBefore,
             decrement,
 
-            SPWr
+            SPWr,
+            open,
+            open
         );
 
     MemoryUUT : MemoryUnit
@@ -300,6 +310,7 @@ begin
             ProgDB,
             immed(5 downto 0),
             decrement,
+            memCin,
 
             addrSel,
             memRW,

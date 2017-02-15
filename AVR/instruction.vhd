@@ -93,21 +93,23 @@ begin
 
     -- This process handles the instruction regiser and program counter/instruction
     -- pointer.
-    fetchInst: process (fetch) is
+    fetchInst: process (clk) is
     begin
-        -- Fetch the next instruction by loading the incremented IP into IP
-        if (rising_edge(fetch)) then
-            -- Assume we don't use register.
-            useReg <= '0';
+        if (rising_edge(clk)) then
+            -- Fetch the next instruction by loading the incremented IP into IP
+            if (fetch = '1') then
+                -- Assume we don't use register.
+                useReg <= '0';
 
-            -- Update the instruction pointer
-            IP <= nextIP;
+                -- Update the instruction pointer
+                IP <= nextIP;
 
-            -- If the fetch occurs on the first clock, then we need to latch
-            -- the instruction because the next value will be a memory address
-            if (clkIdx = 0) then
-                IR <= ROMIn;
-                useReg <= '1';
+                -- If the fetch occurs on the second clock, then we need to latch
+                -- the instruction because the next value will be a memory address
+                if (clkIdx = 1) then
+                    IR <= ROMIn;
+                    useReg <= '1';
+                end if;
             end if;
         end if;
     end process;

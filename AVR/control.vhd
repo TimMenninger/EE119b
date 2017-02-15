@@ -151,7 +151,11 @@ entity ControlUnit is
         decrement   : out std_logic;        -- when low, decrementing
 
         -- Stack pointer control
-        SPWr        : out std_logic                     -- write to stack ptr
+        SPWr        : out std_logic;        -- write to stack ptr
+
+        -- Instruction register and program counter control
+        fetch       : out std_logic;        -- Tells us when to fetch instruction
+        memCin      : out std_logic         -- Cin to memory address adder
     );
 end ControlUnit;
 
@@ -173,7 +177,7 @@ begin
     --
     -- counter process
     --
-    -- Increments the clock counter
+    -- Increments the clock counter and fetches next instruction when necessary
     --
     counter: process (clk) is
     begin
@@ -225,6 +229,9 @@ begin
         sourceSel<= "00";           -- Choose data from ALU
 
         numClks  <= 0;              -- Assume this is a 1-clock instruction
+
+        fetch    <= '1';            -- Assume we are fetching instruction next clock
+        memCin   <= '0';            -- Normally not adding 1 to address + offset
 
         -----------------------------------------------------------------------------
         --
@@ -289,8 +296,9 @@ begin
                 when 0 =>
                     -- On first clock:
                     --      immed: Add value from instruction
-                    --      regSelA: From instruction
+                    --      Don't fetch instruction for second half
                     immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
+                    fetch <= '0';
                 when others =>
                     -- On second clock:
                     --      ENCarry: Use carry from low byte add
@@ -629,6 +637,11 @@ begin
 
             -- Affects C Z flags
             flagMask <= "11111100";
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
         end if;
 
         -- Negate
@@ -788,9 +801,11 @@ begin
                     --      regSelA: From instruction
                     --      ENInvOp: We add two's complement on low byte
                     --      ENInvRes: Finish two's complement
+                    --      Don't fetch instruction for second half
                     immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
                     ENInvOp <= '0';
                     ENInvRes <= '0';
+                    fetch <= '0';
                 when others =>
                     -- On second clock:
                     --      ENCarry: Use carry from low byte add
@@ -896,10 +911,15 @@ begin
             -- The destination register is implied by bits 4-8
             regSelA <= instruction(8 downto 4);
 
-            -- Writing to register on second clock
+            -- Writing to register on end of second clock
             if (clkCnt = 1) then
                 ENRegWr <= '0';
                 ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select X word register and don't write new address to it after
@@ -926,6 +946,11 @@ begin
             if (clkCnt = 1) then
                 ENRegWr <= '0';
                 ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select X word register and write new address to it after
@@ -958,6 +983,11 @@ begin
                 ENRegA <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- Select X word register and write new address to it after
             wordReg <= "101";
 
@@ -985,6 +1015,11 @@ begin
             if (clkCnt = 1) then
                 ENRegWr <= '0';
                 ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select Y word register and write new addr to it after
@@ -1017,6 +1052,11 @@ begin
                 ENRegA <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- Select Y word register and write new addr to it after
             wordReg <= "110";
 
@@ -1047,6 +1087,11 @@ begin
                 ENRegA <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- The register is implied by bits 4-8
             regSelA <= instruction(8 downto 4);
 
@@ -1074,6 +1119,11 @@ begin
             if (clkCnt = 1) then
                 ENRegWr <= '0';
                 ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select Z word register and write new addr to it after
@@ -1106,6 +1156,11 @@ begin
                 ENRegA <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- Select Z word register and write new addr to it after
             wordReg <= "111";
 
@@ -1134,6 +1189,11 @@ begin
             if (clkCnt = 1) then
                 ENRegWr <= '0';
                 ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- The register is implied by bits 4-8
@@ -1181,6 +1241,12 @@ begin
                 ENRegA <= '0';
             end if;
 
+            -- Need new instruction (ProgDB) for second clock, but don't need
+            -- another new one for third one.
+            if (clkCnt = 1) then
+                fetch <= '0';
+            end if;
+
             -- Using address from instruction
             addrSel <= "11";
 
@@ -1218,6 +1284,11 @@ begin
 
             -- Writing to memory here.
             memRW <= '0';
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
         end if;
 
         -- ST X+, Rr
@@ -1231,6 +1302,11 @@ begin
             -- Writing new value to word register
             if (clkCnt = 1) then
                 ENRegWr <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select X word register and write to it after
@@ -1260,6 +1336,11 @@ begin
                 ENRegWr <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- Select X word register and write to it after
             wordReg <= "101";
 
@@ -1284,6 +1365,11 @@ begin
             -- Writing new value to word register
             if (clkCnt = 1) then
                 ENRegWr <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select Y word register and write to it after
@@ -1313,6 +1399,11 @@ begin
                 ENRegWr <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- Select Y word register and write to it after
             wordReg <= "110";
 
@@ -1337,6 +1428,11 @@ begin
             -- Writing new value to word register
             if (clkCnt = 1) then
                 ENRegWr <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select Z word register and write new addr to it after
@@ -1364,6 +1460,11 @@ begin
             -- Writing new value to word register
             if (clkCnt = 1) then
                 ENRegWr <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Select Z word register and write new addr to it after
@@ -1399,6 +1500,11 @@ begin
 
             -- Writing to memory here.
             memRW <= '0';
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
         end if;
 
         -- STD Z + q, Rr
@@ -1421,6 +1527,11 @@ begin
 
             -- Writing to memory here.
             memRW <= '0';
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
         end if;
 
         -- STS m, Rr
@@ -1436,6 +1547,12 @@ begin
 
             -- Writing to memory here.
             memRW <= '0';
+
+            -- Need new instruction (ProgDB) for second clock, but don't need
+            -- another new one for third one.
+            if (clkCnt = 1) then
+                fetch <= '0';
+            end if;
         end if;
 
 
@@ -1462,6 +1579,11 @@ begin
                 SPWr <= '0';
             end if;
 
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
             -- Using address from stack pointer
             addrSel <= "10";
 
@@ -1485,6 +1607,11 @@ begin
             -- Writing over stack pointer value
             if (clkCnt = 1) then
                 SPWr <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
             end if;
 
             -- Using memory from stack pointer

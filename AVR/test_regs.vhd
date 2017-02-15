@@ -180,7 +180,11 @@ architecture toplevel of TEST_REG is
             decrement   : out std_logic;        -- when low, decrementing
 
             -- Stack pointer control
-            SPWr        : out std_logic         -- write to stack ptr
+            SPWr        : out std_logic;        -- write to stack ptr
+
+            -- Instruction pointer control
+            fetch       : out std_logic;        -- fetch enable
+            memCin      : out std_logic         -- Cin to memory adder
         );
     end component;
 
@@ -284,7 +288,10 @@ begin
             addBefore,
             decrement,
 
-            SPWr
+            SPWr,
+
+            open,
+            open
         );
 
     RegisterUUT : Registers

@@ -78,6 +78,7 @@ entity MemoryUnit is
         IRAddr      : in  address_t;        -- address from instruction
         immed       : in  addrOffset_t;     -- memory address offset
         decrement   : in  std_logic;        -- when low, decrement
+        memCin      : in  std_logic;        -- Cin to address adder
 
         addrSel     : in  addrSelector_t;   -- chooses which address
         RW          : in  std_logic;        -- read/not write
@@ -124,7 +125,7 @@ architecture workflow of MemoryUnit is
 begin
 
     AddrAdder : NBitAdder
-        port map ('0', address, offset, open, nextAddress);
+        port map (memCin, address, offset, open, nextAddress);
 
     -- We use the input select signal to choose which address input we should be
     -- using
