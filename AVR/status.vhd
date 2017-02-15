@@ -44,6 +44,8 @@
 --      mask : status_t
 --          Masks for flags that shouldn't be changing on this operation.  Locations
 --          of affected flags should have zeroes.
+--      clkIdx : clockIndex_t
+--          Tells us how many clocks since the beginnign of the instruction.
 --
 -- Outputs:
 --      TF : std_logic
