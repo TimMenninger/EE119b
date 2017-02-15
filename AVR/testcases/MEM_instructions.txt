@@ -117,69 +117,69 @@ POP 13 0
 POP 14 0
 POP 15 0
 
-STX 0 0 -- Test moving value from register to address at X and back.  Address at X
-LDX 0 0 -- is arbitrary.  Test this on all 30 registers
-STX 1 0
+STX 1 0 -- Test moving value from register to address at X and back.  Address at X
+LDX 0 0 -- is arbitrary.  Test this on all 30 registers.  We store and load from
+STX 2 0 -- different regs to show that loading changes the register value
 LDX 1 0
-STX 2 0
-LDX 2 0
 STX 3 0
-LDX 3 0
+LDX 2 0
 STX 4 0
-LDX 4 0
+LDX 3 0
 STX 5 0
-LDX 5 0
+LDX 4 0
 STX 6 0
-LDX 6 0
+LDX 5 0
 STX 7 0
-LDX 7 0
+LDX 6 0
 STX 8 0
-LDX 8 0
+LDX 7 0
 STX 9 0
-LDX 9 0
+LDX 8 0
 STX 10 0
-LDX 10 0
+LDX 9 0
 STX 11 0
-LDX 11 0
+LDX 10 0
 STX 12 0
-LDX 12 0
+LDX 11 0
 STX 13 0
-LDX 13 0
+LDX 12 0
 STX 14 0
-LDX 14 0
+LDX 13 0
 STX 15 0
-LDX 15 0
+LDX 14 0
 STX 16 0
-LDX 16 0
+LDX 15 0
 STX 17 0
-LDX 17 0
+LDX 16 0
 STX 18 0
-LDX 18 0
+LDX 17 0
 STX 19 0
-LDX 19 0
+LDX 18 0
 STX 20 0
-LDX 20 0
+LDX 19 0
 STX 21 0
-LDX 21 0
+LDX 20 0
 STX 22 0
-LDX 22 0
+LDX 21 0
 STX 23 0
-LDX 23 0
+LDX 22 0
 STX 24 0
-LDX 24 0
+LDX 23 0
 STX 25 0
-LDX 25 0
+LDX 24 0
 STX 26 0
-LDX 26 0
+LDX 25 0
 STX 27 0
-LDX 27 0
+LDX 26 0
 STX 28 0
-LDX 28 0
+LDX 27 0
 STX 29 0
-LDX 29 0
+LDX 28 0
 STX 30 0
-LDX 30 0
+LDX 29 0
 STX 31 0
+LDX 30 0
+STX 0 0
 LDX 31 0
 PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
 
@@ -217,9 +217,8 @@ STXI 29 0
 STXI 30 0
 STXI 31 0
 
-LDXD 0 0 -- Now test pre decrement load X on all registers except X
-LDXD 1 0
-LDXD 2 0
+LDXD 1 0 -- Now test pre decrement load X on all registers except X.  Push in a staggered
+LDXD 2 0 -- order to demonstrate that LD changes registers
 LDXD 3 0
 LDXD 4 0
 LDXD 5 0
@@ -247,7 +246,7 @@ LDXD 28 0 -- skip the X registers
 LDXD 29 0
 LDXD 30 0
 LDXD 31 0
-PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDXD 0 0
 
 STXD 0 0 -- Now test pre decrement store X on all registers (except X)
 STXD 1 0 -- This should wrap again and have reg 27 decrement.
@@ -280,9 +279,8 @@ STXD 29 0
 STXD 30 0
 STXD 31 0
 
-LDXI 0 0 -- Now test post increment load X on all registers except X
-LDXI 1 0
-LDXI 2 0
+LDXI 1 0 -- Now test post increment load X on all registers except X.  LD in staggered
+LDXI 2 0 -- order to show regs change
 LDXI 3 0
 LDXI 4 0
 LDXI 5 0
@@ -310,7 +308,7 @@ LDXI 28 0 -- skip the X registers
 LDXI 29 0
 LDXI 30 0
 LDXI 31 0
-PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDXI 0 0
 
 LDI 28 245 -- We don't test values with wraparound all the way because that is
 LDI 29 200 -- where the stack is, but we want to make sure it propagates to high byte
@@ -346,9 +344,8 @@ STYI 27 0
 STYI 30 0 -- skip the Y registers
 STYI 31 0
 
-LDYD 0 0 -- Now test pre decrement load Y on all registers except Y
-LDYD 1 0
-LDYD 2 0
+LDYD 1 0 -- Now test pre decrement load Y on all registers except Y.  LD in staggered
+LDYD 2 0 -- to show regs change
 LDYD 3 0
 LDYD 4 0
 LDYD 5 0
@@ -376,7 +373,7 @@ LDYD 26 0
 LDYD 27 0
 LDYD 30 0 -- skip the Y registers
 LDYD 31 0
-PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDYD 0 0
 
 STYD 0 0 -- Now test pre decrement store Y on all registers (except Y)
 STYD 1 0 -- This should wrap again and have reg 27 decrement.
@@ -409,9 +406,8 @@ STYD 27 0
 STYD 30 0 -- Skip Y registers
 STYD 31 0
 
-LDYI 0 0 -- Now test post increment load Y on all registers except Y
-LDYI 1 0
-LDYI 2 0
+LDYI 1 0 -- Now test post increment load Y on all registers except Y.  LD in staggered
+LDYI 2 0 -- order to show regs change
 LDYI 3 0
 LDYI 4 0
 LDYI 5 0
@@ -439,7 +435,7 @@ LDYI 26 0
 LDYI 27 0
 LDYI 30 0 -- skip the Y registers
 LDYI 31 0
-PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDYI 0 0
 
 LDI 30 245 -- We don't test values with wraparound all the way because that is
 LDI 31 200 -- where the stack is, but we want to make sure it propagates to high byte
@@ -475,9 +471,8 @@ STZI 27 0
 STZI 28 0
 STZI 29 0 -- skip the Z registers
 
-LDZD 0 0 -- Now test pre decrement load Z on all registers except Z
-LDZD 1 0
-LDZD 2 0
+LDZD 1 0 -- Now test pre decrement load Z on all registers except Z.  LD in staggered
+LDZD 2 0 -- order to show regs change
 LDZD 3 0
 LDZD 4 0
 LDZD 5 0
@@ -505,7 +500,7 @@ LDZD 26 0
 LDZD 27 0
 LDZD 28 0
 LDZD 29 0 -- skip the Z registers
-PUSH 29 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDZD 0 0
 
 STZD 0 0 -- Now test pre decrement store Z on all registers (except Z)
 STZD 1 0 -- This should wrap again and have reg 27 decrement.
@@ -538,9 +533,8 @@ STZD 27 0
 STZD 28 0
 STZD 29 0 -- Skip Z registers
 
-LDZI 0 0 -- Now test post increment load Z on all registers except Z
-LDZI 1 0
-LDZI 2 0
+LDZI 1 0 -- Now test post increment load Z on all registers except Z.  LD in staggered
+LDZI 2 0 -- order to show regs change
 LDZI 3 0
 LDZI 4 0
 LDZI 5 0
@@ -568,7 +562,7 @@ LDZI 26 0
 LDZI 27 0
 LDZI 28 0
 LDZI 29 0 -- skip the Z registers
-PUSH 29 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDZI 0 0
 
 LDI 28 245 -- We don't test values with wraparound all the way because that is
 LDI 29 200 -- where the stack is, but we want to make sure it propagates to high byte
@@ -638,71 +632,70 @@ STDY 0 61
 STDY 1 62
 STDY 1 63
 
-LDDY 0 0 -- First operand is destination, second is q (5 bits)
-LDDY 0 1 -- We will try every possible q, with each register twice except Y
-LDDY 1 2 -- From before, Y will have to wrap around
-LDDY 1 3
-LDDY 2 4
-LDDY 2 5
-LDDY 3 6
-LDDY 3 7
-LDDY 4 8
-LDDY 4 9
-LDDY 5 10
-LDDY 5 11
-LDDY 6 12
-LDDY 6 13
-LDDY 7 14
-LDDY 7 15
-LDDY 8 16
-LDDY 8 17
-LDDY 9 18
-LDDY 9 19
-LDDY 10 20
-LDDY 10 21
-LDDY 11 22
-LDDY 11 23
-LDDY 12 24
-LDDY 12 25
-LDDY 13 26
-LDDY 13 27
-LDDY 14 28
-LDDY 14 29
-LDDY 15 30
-LDDY 15 31
-LDDY 16 32
-LDDY 16 33
-LDDY 17 34
-LDDY 17 35
-LDDY 18 36
-LDDY 18 37
-LDDY 19 38
-LDDY 19 39
-LDDY 20 40
-LDDY 20 41
-LDDY 21 42
-LDDY 21 43
-LDDY 22 44
-LDDY 22 45
-LDDY 23 46
-LDDY 23 47
-LDDY 24 48
-LDDY 24 49
-LDDY 25 50
-LDDY 25 51
-LDDY 26 52
-LDDY 26 53
-LDDY 27 54
-LDDY 27 55
-LDDY 30 56 -- Skip Y registers
+LDDY 1 0 -- First operand is destination, second is q (5 bits)
+LDDY 2 1 -- We will try every possible q, with each register twice except Y
+LDDY 3 2 -- From before, Y will have to wrap around.  We load in a different order
+LDDY 4 3 -- To show that registers change
+LDDY 5 4
+LDDY 6 5
+LDDY 7 6
+LDDY 8 7
+LDDY 9 8
+LDDY 10 9
+LDDY 11 10
+LDDY 12 11
+LDDY 13 12
+LDDY 14 13
+LDDY 15 14
+LDDY 16 15
+LDDY 17 16
+LDDY 18 17
+LDDY 19 18
+LDDY 20 19
+LDDY 21 20
+LDDY 22 21
+LDDY 23 22
+LDDY 24 23
+LDDY 25 24
+LDDY 26 25
+LDDY 27 26
+LDDY 30 27
+LDDY 31 28
+LDDY 0 29
+LDDY 1 30
+LDDY 2 31
+LDDY 3 32
+LDDY 4 33
+LDDY 5 34
+LDDY 6 35
+LDDY 7 36
+LDDY 8 37
+LDDY 9 38
+LDDY 10 39
+LDDY 11 40
+LDDY 12 41
+LDDY 13 42
+LDDY 14 43
+LDDY 15 44
+LDDY 16 45
+LDDY 17 46
+LDDY 18 47
+LDDY 19 48
+LDDY 20 49
+LDDY 21 50
+LDDY 22 51
+LDDY 23 52
+LDDY 24 53
+LDDY 25 54
+LDDY 26 55
+LDDY 27 56 -- Skip Y registers
 LDDY 30 57
 LDDY 31 58
-LDDY 31 59
-LDDY 0 60
-LDDY 0 61
-LDDY 1 62
-LDDY 1 63
-PUSH 1 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDDY 0 59
+LDDY 1 60
+LDDY 2 61
+LDDY 3 62
+LDDY 4 63
 
 LDI 30 245 -- We don't test values with wraparound all the way because that is
 LDI 31 200 -- where the stack is, but we want to make sure it propagates to high byte
@@ -772,71 +765,70 @@ STDZ 0 61
 STDZ 1 62
 STDZ 1 63
 
-LDDZ 0 0 -- First operand is destination, second is q (5 bits)
-LDDZ 0 1 -- We will try every possible q, with each register twice except Z
-LDDZ 1 2 -- From before, Z will have to wrap around
-LDDZ 1 3
-LDDZ 2 4
-LDDZ 2 5
-LDDZ 3 6
-LDDZ 3 7
-LDDZ 4 8
-LDDZ 4 9
-LDDZ 5 10
-LDDZ 5 11
-LDDZ 6 12
-LDDZ 6 13
-LDDZ 7 14
-LDDZ 7 15
-LDDZ 8 16
-LDDZ 8 17
-LDDZ 9 18
-LDDZ 9 19
-LDDZ 10 20
-LDDZ 10 21
-LDDZ 11 22
-LDDZ 11 23
-LDDZ 12 24
-LDDZ 12 25
-LDDZ 13 26
-LDDZ 13 27
-LDDZ 14 28
-LDDZ 14 29
-LDDZ 15 30
-LDDZ 15 31
-LDDZ 16 32
-LDDZ 16 33
-LDDZ 17 34
-LDDZ 17 35
-LDDZ 18 36
-LDDZ 18 37
-LDDZ 19 38
-LDDZ 19 39
-LDDZ 20 40
-LDDZ 20 41
-LDDZ 21 42
-LDDZ 21 43
-LDDZ 22 44
-LDDZ 22 45
-LDDZ 23 46
-LDDZ 23 47
-LDDZ 24 48
-LDDZ 24 49
-LDDZ 25 50
-LDDZ 25 51
-LDDZ 26 52
-LDDZ 26 53
-LDDZ 27 54
-LDDZ 27 55
-LDDZ 28 56
+LDDZ 1 0 -- First operand is destination, second is q (5 bits)
+LDDZ 2 1 -- We will try every possible q, with each register twice except Z
+LDDZ 3 2 -- From before, Z will have to wrap around.  Load in different order
+LDDZ 4 3 -- to show it changes regs
+LDDZ 5 4
+LDDZ 6 5
+LDDZ 7 6
+LDDZ 8 7
+LDDZ 9 8
+LDDZ 10 9
+LDDZ 11 10
+LDDZ 12 11
+LDDZ 13 12
+LDDZ 14 13
+LDDZ 15 14
+LDDZ 16 15
+LDDZ 17 16
+LDDZ 18 17
+LDDZ 19 18
+LDDZ 20 19
+LDDZ 21 20
+LDDZ 22 21
+LDDZ 23 22
+LDDZ 24 23
+LDDZ 25 24
+LDDZ 26 25
+LDDZ 27 26
+LDDZ 28 27
+LDDZ 29 28
+LDDZ 0 29
+LDDZ 1 30
+LDDZ 2 31
+LDDZ 3 32
+LDDZ 4 33
+LDDZ 5 34
+LDDZ 6 35
+LDDZ 7 36
+LDDZ 8 37
+LDDZ 9 38
+LDDZ 10 39
+LDDZ 11 40
+LDDZ 12 41
+LDDZ 13 42
+LDDZ 14 43
+LDDZ 15 44
+LDDZ 16 45
+LDDZ 17 46
+LDDZ 18 47
+LDDZ 19 48
+LDDZ 20 49
+LDDZ 21 50
+LDDZ 22 51
+LDDZ 23 52
+LDDZ 24 53
+LDDZ 25 54
+LDDZ 26 55
+LDDZ 27 56
 LDDZ 28 57
 LDDZ 29 58 -- skip Z registers
-LDDZ 29 59
-LDDZ 0 60
-LDDZ 0 61
-LDDZ 1 62
-LDDZ 1 63
-PUSH 1 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDDZ 0 59
+LDDZ 1 60
+LDDZ 2 61
+LDDZ 3 62
+LDDZ 4 63
 
 STS 0 0 -- Store register 0 to memory.  The memory address will be random
 STS 1 0
@@ -871,10 +863,9 @@ STS 29 0
 STS 30 0
 STS 31 0
 
-LDS 0 0 -- Load what we just stored.  This will be in a random order.
-LDS 1 0
-LDS 2 0
-LDS 3 0
+LDS 1 0 -- Load what we just stored.  This will be in a random order from the
+LDS 2 0 -- Python code, but just to ensure, we will load in a different order
+LDS 3 0 -- to show regs change
 LDS 4 0
 LDS 5 0
 LDS 6 0
@@ -903,4 +894,4 @@ LDS 28 0
 LDS 29 0
 LDS 30 0
 LDS 31 0
-PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+LDS 0 0
