@@ -35,7 +35,9 @@
 --      BST : std_logic
 --          Set to 1 when we are executing BST instruction
 --      CPC : std_logic
---          '1' when CPC instruction occurring.
+--          '1' when CPC instruction occurring (or any other add/subtract with carry).
+--          This is important because it means when the result is zero, we don't change
+--          the value of the zero flag.
 --      sel : std_logic_vector(2 downto 0)
 --          Index to the array of flag computations used to propagate flag to
 --          output

@@ -107,201 +107,225 @@ def compute_result(instruction, opA, opB, status):
 
     flagMask = [1,1,1,1,1,1,1,1]
     TF = 0
-    idx = 0
 
+    # For computing flags
+    Rd0 = bool(int_to_binary(opA, 16)[15])
+    Rd3 = bool(int_to_binary(opA, 16)[12])
+    Rr3 = bool(int_to_binary(opB, 8)[4])
+    Rd7 = bool(int_to_binary(opA, 16)[8])
+    if (instruction in [ "ADIW", "SBIW" ]):
+        Rd7 = bool(int_to_binary(opA, 16)[0])
+    Rr7 = bool(int_to_binary(opB, 8)[0])
+
+    # Perform operation
     if (instruction == "ADC"):
-        res = int_to_binary(opA + opB + int(status[C]), 8)
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA + opB + int(status[C]), 8)
+        status[H] = (Rd3 and Rr3) or (Rr3 and not R[4]) or (not R[4] and Rd3)
+        status[V] = (Rd7 and Rr7 and not R[0]) or (not Rd7 and not Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (status[V] and not status[N]) or (not status[V] and status[N])
+        status[Z] = (R == [0] * 8)
+        status[C] = (Rd7 and Rr7) or (Rr7 and not R[0]) or (not R[0] and Rd7)
     if (instruction == "ADD"):
-        res = int_to_binary(opA + opB, 8)
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA + opB, 8)
+        status[H] = (Rd3 and Rr3) or (Rr3 and not R[4]) or (not R[4] and Rd3)
+        status[V] = (Rd7 and Rr7 and not R[0]) or (not Rd7 and not Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (status[V] and not status[N]) or (not status[V] and status[N])
+        status[Z] = (R == [0] * 8)
+        status[C] = (Rd7 and Rr7) or (Rr7 and not R[0]) or (not R[0] and Rd7)
     if (instruction == "ADIW"):
-        res = int_to_binary(opA + opB, 16)
-        flagMask = [1,1,1,0,0,0,0,0];
+        R = int_to_binary(opA + opB, 16)
+        status[V] = not Rd7 and R[0]
+        status[N] = R[0]
+        status[S] = (status[V] and not status[N]) or (not status[V] and status[N])
+        status[Z] = (R == [0] * 16)
+        status[C] = not R[0] and Rd7
     if (instruction == "AND"):
-        res = int_to_binary(opA & opB, 8)
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA & opB, 8)
+        status[V] = False
+        status[N] = R[0]
+        status[S] = (status[V] and not status[N]) or (not status[V] and status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "ANDI"):
-        res = int_to_binary(opA & opB, 8)
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA & opB, 8)
+        status[V] = False
+        status[N] = R[0]
+        status[S] = (status[V] and not status[N]) or (not status[V] and status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "ASR"):
-        res = int_to_binary(opA, 8)
-        res[1:] = res[:7]
-        res[0] = res[1]
-        idx = 1
-        flagMask = [1,1,1,0,0,0,0,0];
+        R = int_to_binary(opA, 8)
+        R[1:] = R[:7]
+        R[0] = R[1]
+        status[N] = R[0]
+        status[Z] = (R == [0] * 8)
+        status[C] = Rd0
+        status[V] = (not status[N] and status[C]) or (status[N] and not status[C])
+        status[S] = (not status[N] and status[V]) or (status[N] and not status[V])
     if (instruction == "BCLR"):
-        res = int_to_binary(0, 8)
+        R = int_to_binary(0, 8)
         status[7 - opA] = 0
     if (instruction == "BLD"):
-        res = int_to_binary(opA, 8)
-        res[7 - opB] = int(status[T])
+        R = int_to_binary(opA, 8)
+        R[7 - opB] = int(status[T])
     if (instruction == "BSET"):
-        res = int_to_binary(0, 8)
+        R = int_to_binary(0, 8)
         status[7 - opA] = 1
     if (instruction == "BST"):
-        res = int_to_binary(0, 8)
-        TF = int_to_binary(opA, 8)[7 - opB]
-        flagMask = [1,0,1,1,1,1,1,1];
+        R = int_to_binary(0, 8)
+        status[T] = int_to_binary(opA, 8)[7 - opB]
     if (instruction == "COM"):
-        res = int_to_binary(opA, 8)
+        R = int_to_binary(opA, 8)
         idx = 2
-        res = [ (i+1) % 2 for i in res ]
-        flagMask = [1,1,1,0,0,0,0,0];
+        R = [ (i+1) % 2 for i in R ]
+        status[V] = False
+        status[N] = R[0]
+        status[Z] = (R == [0] * 8)
+        status[C] = True
+        status[S] = (not status[N] and status[V]) or (status[N] and not status[V])
     if (instruction == "CP"):
-        res = int_to_binary(opA - opB, 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB, 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[N] and status[V]) or (status[N] and not status[V])
+        status[Z] = (R == [0] * 8)
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "CPC"):
-        res = int_to_binary(opA - opB - int(status[C]), 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB - int(status[C]), 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[N] and status[V]) or (status[N] and not status[V])
+        status[Z] = (R == [0] * 8) and status[Z]
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "CPI"):
-        res = int_to_binary(opA - opB, 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB, 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[N] and status[V]) or (status[N] and not status[V])
+        status[Z] = (R == [0] * 8)
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "DEC"):
-        idx = 4
-        res = int_to_binary(opA - 1, 8)
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA - 1, 8)
+        status[V] = (R == [0, 1, 1, 1, 1, 1, 1, 1])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "EOR"):
-        res = int_to_binary(opA ^ opB, 8)
-        idx = 2
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA ^ opB, 8)
+        status[V] = False
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "INC"):
-        res = int_to_binary(opA + 1, 8)
-        idx = 5
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA + 1, 8)
+        status[V] = (R == [1, 0, 0, 0, 0, 0, 0, 0])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "LSR"):
-        idx = 1
-        res = int_to_binary(opA, 8)
-        res[1:] = res[:7]
-        res[0] = 0
-        flagMask = [1,1,1,0,0,0,0,0];
+        R = int_to_binary(opA, 8)
+        R[1:] = R[:7]
+        R[0] = 0
+        status[N] = 0
+        status[Z] = (R == [0] * 8)
+        status[C] = Rd0
+        status[V] = (not status[C] and status[N]) or (status[C] and not status[N])
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
     if (instruction == "MUL"):
-        idx = 5
-        res = int_to_binary(opA * opB, 16)
-        flagMask = [1,1,1,1,1,1,0,0];
+        R = int_to_binary(opA * opB, 16)
+        status[C] = R[0]
+        status[Z] = (R == [0] * 16)
     if (instruction == "NEG"):
-        res = int_to_binary(-1 * opA, 8)
-        idx = 6
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(-1 * opA, 8)
+        status[H] = R[4] or Rd3
+        status[V] = (R == [1, 0, 0, 0, 0, 0, 0, 0])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
+        status[C] = (R != [0] * 8)
     if (instruction == "OR"):
-        res = int_to_binary(opA | opB, 8)
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA | opB, 8)
+        status[V] = 0
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "ORI"):
-        res = int_to_binary(opA | opB, 8)
-        flagMask = [1,1,1,0,0,0,0,1];
+        R = int_to_binary(opA | opB, 8)
+        status[V] = 0
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
     if (instruction == "ROR"):
-        res = int_to_binary(opA, 8)
+        R = int_to_binary(opA, 8)
         temp = int(status[C])
-        status[C] = str(res[7])
-        res[1:] = res[:7]
-        res[0] = temp
-        idx = 1
-        flagMask = [1,1,1,0,0,0,0,0];
+        status[C] = str(R[0])
+        R[1:] = R[:7]
+        R[0] = temp
+        status[N] = R[0]
+        status[Z] = (R == [0] * 8)
+        status[C] = Rd0
+        status[V] = (not status[C] and status[N]) or (status[C] and not status[N])
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
     if (instruction == "SBC"):
-        res = int_to_binary(opA - opB - int(status[C]), 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB - int(status[C]), 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8) and status[Z]
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "SBCI"):
-        res = int_to_binary(opA - opB - int(status[C]), 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB - int(status[C]), 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8) and status[Z]
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "SBIW"):
-        res = int_to_binary(opA - opB, 16)
-        idx = 3
-        flagMask = [1,1,1,0,0,0,0,0];
+        R = int_to_binary(opA - opB, 16)
+        status[V] = Rd7 and not R[0]
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 16)
+        status[C] = R[0] and not Rd7
     if (instruction == "SUB"):
-        res = int_to_binary(opA - opB, 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB, 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "SUBI"):
-        res = int_to_binary(opA - opB, 8)
-        idx = 3
-        flagMask = [1,1,0,0,0,0,0,0];
+        R = int_to_binary(opA - opB, 8)
+        status[H] = (not Rd3 and Rr3) or (Rr3 and R[4]) or (R[4] and not Rd3)
+        status[V] = (Rd7 and not Rr7 and not R[0]) or (not Rd7 and Rr7 and R[0])
+        status[N] = R[0]
+        status[S] = (not status[V] and status[N]) or (status[V] and not status[N])
+        status[Z] = (R == [0] * 8)
+        status[C] = (not Rd7 and Rr7) or (Rr7 and R[0]) or (R[0] and not Rd7)
     if (instruction == "SWAP"):
-        res = int_to_binary(opA, 8)
-        temp = res[:4]
-        res[:4] = res[4:]
-        res[4:] = temp
+        R = int_to_binary(opA, 8)
+        temp = R[:4]
+        R[:4] = R[4:]
+        R[4:] = temp
     if (instruction == "MOV"):
-        res = int_to_binary(opB, 8)
+        R = int_to_binary(opB, 8)
     if (instruction == "LDI"):
-        res = int_to_binary(opB, 8)
+        R = int_to_binary(opB, 8)
 
-    HF = [0] * 7
-    VF = [0] * 7
-    CF = [0] * 7
+    R = [ str(int(i)) for i in R ]
+    for i, elem in enumerate(status):
+        try:
+            status[i] = str(int(elem))
+        except:
+            status[i] = str(elem)
 
-    R = res
-    Rd0 = int_to_binary(opA, 16)[15]
-    Rd3 = int_to_binary(opA, 16)[12]
-    Rr3 = int_to_binary(opB, 8)[4]
-    Rd7 = int_to_binary(opA, 16)[8]
-    if (instruction in [ "ADIW", "SBIW" ]):
-        Rd7 = int_to_binary(opA, 16)[0]
-    Rr7 = int_to_binary(opB, 8)[0]
-
-    MSB = 0
-
-    # Half-carry flag
-    HF[0] = (Rd3 == 1 and Rr3 == 1) or \
-            (Rr3 == 1 and R[4]  == 0) or \
-            (R[4] == 0 and Rd3 == 1)
-    HF[1] = 0
-    HF[2] = 0
-    HF[3] = (Rd3 == 0 and Rr3 == 1) or \
-            (Rr3 == 1 and R[4] == 1) or \
-            (R[4] == 1 and Rd3 == 0)
-    HF[4] = 0
-    HF[5] = 0
-    HF[6] = R[4] or Rd3
-
-    # Overflow flag
-    VF[0] = (Rd7 == 1 and Rr7 == 1 and R[MSB] == 0) or \
-            (Rd7 == 0 and Rr7 == 0 and R[MSB] == 1)
-    VF[1] = (Rd0 == 1 and R[MSB] == 0) or \
-            (Rd0 == 0 and R[MSB] == 1)
-    VF[2] = 0
-    VF[3] = (Rd7 == 1 and Rr7 == 0 and R[MSB] == 0) or \
-            (Rd7 == 0 and Rr7 == 1 and R[MSB] == 1)
-    VF[4] = R == [0, 1, 1, 1, 1, 1, 1, 1]
-    VF[5] = R == [1, 0, 0, 0, 0, 0, 0, 0]
-    VF[6] = R == [1, 0, 0, 0, 0, 0, 0, 0]
-
-    # Sign flag
-    NF = R[MSB]
-
-    # Zero flag
-    ZF = (R == [ 0 ] * len(R))
-    if (ZF and instruction == "CPC"):
-        ZF = status[Z]
-
-    # Carry flag
-    CF[0] = (Rd7 == 1 and Rr7 == 1) or \
-            (Rr7 == 1 and R[MSB] == 0) or \
-            (R[MSB] == 0 and Rd7 == 1)
-    CF[1] = Rd0
-    CF[2] = 1
-    CF[3] = (Rd7 == 0 and Rr7 == 1) or \
-            (Rr7 == 1 and R[MSB] == 1) or \
-            (R[MSB] == 1 and Rd7 == 0)
-    CF[4] = 0
-    CF[5] = R[MSB]
-    CF[6] = R != [0, 0, 0, 0, 0, 0, 0, 0]
-
-    newFlags = [0, TF, int(HF[idx]), int(NF ^ VF[idx]), \
-        int(VF[idx]), int(NF), int(ZF), int(CF[idx])]
-
-    for i in range(8):
-        if (flagMask[i] == 0):
-            status[i] = newFlags[i]
-
-    res = [ str(i) for i in res ]
-    status = [ str(i) for i in status ]
-
-    return ''.join(res), ''.join(status)
+    return ''.join(R), ''.join(status)
 
 # Generate opcode
 def compute_instruction(instruction, opA, opB):

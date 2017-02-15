@@ -1,23 +1,7 @@
 -- Need the instruction and 2 operands.  If operand is N/A, put 0
-LDI 0 123
-MOV 1 0 -- Test move instruction to/from every register.  This will just
-MOV 2 1 -- propagate 123 through all of the registers.
-MOV 3 2
-MOV 4 3
-MOV 5 4
-MOV 6 5
-MOV 7 6
-MOV 8 7
-MOV 9 8
-MOV 10 9
-MOV 11 10
-MOV 12 11
-MOV 13 12
-MOV 14 13
-MOV 15 14
-MOV 16 15
-MOV 17 16
-MOV 18 17
+LDI 16 123
+MOV 17 16 -- Test move instruction to/from every register.  This will just
+MOV 18 17 -- propagate 123 through all of the registers.
 MOV 19 18
 MOV 20 19
 MOV 21 20
@@ -32,6 +16,22 @@ MOV 29 28
 MOV 30 29
 MOV 31 30
 MOV 0 31
+MOV 1 0
+MOV 2 1
+MOV 3 2
+MOV 4 3
+MOV 5 4
+MOV 6 5
+MOV 7 6
+MOV 8 7
+MOV 9 8
+MOV 10 9
+MOV 11 10
+MOV 12 11
+MOV 13 12
+MOV 14 13
+MOV 15 14
+MOV 16 15
 
 PUSH 0 0 -- Push what is in registers to see if we successfully loaded
 PUSH 1 0
@@ -66,96 +66,125 @@ PUSH 29 0
 PUSH 30 0
 PUSH 31 0
 
-LDI 0 10 -- Load something into each of the 16 registers (takes 4 input bits)
-LDI 1 55
-LDI 2 123
-LDI 3 224
-LDI 4 91
-LDI 5 90
-LDI 6 0
-LDI 7 255
-LDI 8 254
-LDI 9 66
-LDI 10 78
-LDI 11 211
-LDI 12 198
-LDI 13 176
-LDI 14 22
-LDI 15 45
+LDI 16 10 -- Load something into each of the 16 registers (takes 4 input bits)
+LDI 17 55
+LDI 18 123
+LDI 19 224
+LDI 20 91
+LDI 21 90
+LDI 22 0
+LDI 23 255
+LDI 24 254
+LDI 25 66
+LDI 26 78
+LDI 27 211
+LDI 28 198
+LDI 29 176
+LDI 30 22
+LDI 31 45
 
-PUSH 0 0 -- Push what is in registers to see if we successfully loaded
-PUSH 1 0
-PUSH 2 0
-PUSH 3 0
-PUSH 4 0
-PUSH 5 0
-PUSH 6 0
-PUSH 7 0
-PUSH 8 0
-PUSH 9 0
-PUSH 10 0
-PUSH 11 0
-PUSH 12 0
-PUSH 13 0
-PUSH 14 0
-PUSH 15 0
+PUSH 16 0 -- Push what is in registers to see if we successfully loaded
+PUSH 17 0
+PUSH 18 0
+PUSH 19 0
+PUSH 20 0
+PUSH 21 0
+PUSH 22 0
+PUSH 23 0
+PUSH 24 0
+PUSH 25 0
+PUSH 26 0
+PUSH 27 0
+PUSH 28 0
+PUSH 29 0
+PUSH 30 0
+PUSH 31 0
 
-POP 16 0 -- Move values into upper 15 registers
-POP 17 0
-POP 18 0
-POP 19 0
-POP 20 0
-POP 21 0
-POP 22 0
-POP 23 0
-POP 24 0
-POP 25 0
-POP 26 0
-POP 27 0
-POP 28 0
-POP 29 0
-POP 30 0
-POP 31 0
+POP 0 0 -- Move values into upper 15 registers
+POP 1 0
+POP 2 0
+POP 3 0
+POP 4 0
+POP 5 0
+POP 6 0
+POP 7 0
+POP 8 0
+POP 9 0
+POP 10 0
+POP 11 0
+POP 12 0
+POP 13 0
+POP 14 0
+POP 15 0
 
-STX 0 0 -- Test moving value from register to address at X.  Address at X is random
-STX 1 0 -- Test this on all 30 registers
+STX 0 0 -- Test moving value from register to address at X and back.  Address at X
+LDX 0 0 -- is arbitrary.  Test this on all 30 registers
+STX 1 0
+LDX 1 0
 STX 2 0
+LDX 2 0
 STX 3 0
+LDX 3 0
 STX 4 0
+LDX 4 0
 STX 5 0
+LDX 5 0
 STX 6 0
+LDX 6 0
 STX 7 0
+LDX 7 0
 STX 8 0
+LDX 8 0
 STX 9 0
+LDX 9 0
 STX 10 0
+LDX 10 0
 STX 11 0
+LDX 11 0
 STX 12 0
+LDX 12 0
 STX 13 0
+LDX 13 0
 STX 14 0
+LDX 14 0
 STX 15 0
+LDX 15 0
 STX 16 0
+LDX 16 0
 STX 17 0
+LDX 17 0
 STX 18 0
+LDX 18 0
 STX 19 0
+LDX 19 0
 STX 20 0
+LDX 20 0
 STX 21 0
+LDX 21 0
 STX 22 0
+LDX 22 0
 STX 23 0
+LDX 23 0
 STX 24 0
+LDX 24 0
 STX 25 0
+LDX 25 0
 STX 26 0
+LDX 26 0
 STX 27 0
+LDX 27 0
 STX 28 0
+LDX 28 0
 STX 29 0
+LDX 29 0
 STX 30 0
+LDX 30 0
 STX 31 0
+LDX 31 0
+PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
 
-LDI 0 245 -- We don't test values with wraparound all the way because that is
-LDI 1 200 -- where the stack is, but we want to make sure it propagates to high
-PUSH 0 0 -- byte of register
-POP 26 0
-PUSH 1 0
-POP 27 0
+LDI 26 245 -- We don't test values with wraparound all the way because that is
+LDI 27 200 -- where the stack is, but we want to make sure it propagates to high byte
 
 STXI 0 0 -- Now test post increment store X on all registers except X
 STXI 1 0
@@ -188,6 +217,38 @@ STXI 29 0
 STXI 30 0
 STXI 31 0
 
+LDXD 0 0 -- Now test pre decrement load X on all registers except X
+LDXD 1 0
+LDXD 2 0
+LDXD 3 0
+LDXD 4 0
+LDXD 5 0
+LDXD 6 0
+LDXD 7 0
+LDXD 8 0
+LDXD 9 0
+LDXD 10 0
+LDXD 11 0
+LDXD 12 0
+LDXD 13 0
+LDXD 14 0
+LDXD 15 0
+LDXD 16 0
+LDXD 17 0
+LDXD 18 0
+LDXD 19 0
+LDXD 20 0
+LDXD 21 0
+LDXD 22 0
+LDXD 23 0
+LDXD 24 0
+LDXD 25 0
+LDXD 28 0 -- skip the X registers
+LDXD 29 0
+LDXD 30 0
+LDXD 31 0
+PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+
 STXD 0 0 -- Now test pre decrement store X on all registers (except X)
 STXD 1 0 -- This should wrap again and have reg 27 decrement.
 STXD 2 0
@@ -219,12 +280,40 @@ STXD 29 0
 STXD 30 0
 STXD 31 0
 
-LDI 0 245 -- We don't test values with wraparound all the way because that is
-LDI 1 200 -- where the stack is, but we want to make sure it propagates to high
-PUSH 0 0 -- byte of register
-POP 28 0
-PUSH 1 0
-POP 29 0
+LDXI 0 0 -- Now test post increment load X on all registers except X
+LDXI 1 0
+LDXI 2 0
+LDXI 3 0
+LDXI 4 0
+LDXI 5 0
+LDXI 6 0
+LDXI 7 0
+LDXI 8 0
+LDXI 9 0
+LDXI 10 0
+LDXI 11 0
+LDXI 12 0
+LDXI 13 0
+LDXI 14 0
+LDXI 15 0
+LDXI 16 0
+LDXI 17 0
+LDXI 18 0
+LDXI 19 0
+LDXI 20 0
+LDXI 21 0
+LDXI 22 0
+LDXI 23 0
+LDXI 24 0
+LDXI 25 0
+LDXI 28 0 -- skip the X registers
+LDXI 29 0
+LDXI 30 0
+LDXI 31 0
+PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+
+LDI 28 245 -- We don't test values with wraparound all the way because that is
+LDI 29 200 -- where the stack is, but we want to make sure it propagates to high byte
 
 STYI 0 0 -- Now test post increment store Y on all registers except Y
 STYI 1 0
@@ -257,6 +346,38 @@ STYI 27 0
 STYI 30 0 -- skip the Y registers
 STYI 31 0
 
+LDYD 0 0 -- Now test pre decrement load Y on all registers except Y
+LDYD 1 0
+LDYD 2 0
+LDYD 3 0
+LDYD 4 0
+LDYD 5 0
+LDYD 6 0
+LDYD 7 0
+LDYD 8 0
+LDYD 9 0
+LDYD 10 0
+LDYD 11 0
+LDYD 12 0
+LDYD 13 0
+LDYD 14 0
+LDYD 15 0
+LDYD 16 0
+LDYD 17 0
+LDYD 18 0
+LDYD 19 0
+LDYD 20 0
+LDYD 21 0
+LDYD 22 0
+LDYD 23 0
+LDYD 24 0
+LDYD 25 0
+LDYD 26 0
+LDYD 27 0
+LDYD 30 0 -- skip the Y registers
+LDYD 31 0
+PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+
 STYD 0 0 -- Now test pre decrement store Y on all registers (except Y)
 STYD 1 0 -- This should wrap again and have reg 27 decrement.
 STYD 2 0
@@ -288,12 +409,40 @@ STYD 27 0
 STYD 30 0 -- Skip Y registers
 STYD 31 0
 
-LDI 0 245 -- We don't test values with wraparound all the way because that is
-LDI 1 200 -- where the stack is, but we want to make sure it propagates to high
-PUSH 0 0 -- byte of register
-POP 28 0
-PUSH 1 0
-POP 29 0
+LDYI 0 0 -- Now test post increment load Y on all registers except Y
+LDYI 1 0
+LDYI 2 0
+LDYI 3 0
+LDYI 4 0
+LDYI 5 0
+LDYI 6 0
+LDYI 7 0
+LDYI 8 0
+LDYI 9 0
+LDYI 10 0
+LDYI 11 0
+LDYI 12 0
+LDYI 13 0
+LDYI 14 0
+LDYI 15 0
+LDYI 16 0
+LDYI 17 0
+LDYI 18 0
+LDYI 19 0
+LDYI 20 0
+LDYI 21 0
+LDYI 22 0
+LDYI 23 0
+LDYI 24 0
+LDYI 25 0
+LDYI 26 0
+LDYI 27 0
+LDYI 30 0 -- skip the Y registers
+LDYI 31 0
+PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
+
+LDI 30 245 -- We don't test values with wraparound all the way because that is
+LDI 31 200 -- where the stack is, but we want to make sure it propagates to high byte
 
 STZI 0 0 -- Now test post increment store Z on all registers except Z
 STZI 1 0
@@ -326,6 +475,38 @@ STZI 27 0
 STZI 28 0
 STZI 29 0 -- skip the Z registers
 
+LDZD 0 0 -- Now test pre decrement load Z on all registers except Z
+LDZD 1 0
+LDZD 2 0
+LDZD 3 0
+LDZD 4 0
+LDZD 5 0
+LDZD 6 0
+LDZD 7 0
+LDZD 8 0
+LDZD 9 0
+LDZD 10 0
+LDZD 11 0
+LDZD 12 0
+LDZD 13 0
+LDZD 14 0
+LDZD 15 0
+LDZD 16 0
+LDZD 17 0
+LDZD 18 0
+LDZD 19 0
+LDZD 20 0
+LDZD 21 0
+LDZD 22 0
+LDZD 23 0
+LDZD 24 0
+LDZD 25 0
+LDZD 26 0
+LDZD 27 0
+LDZD 28 0
+LDZD 29 0 -- skip the Z registers
+PUSH 29 0 -- I think above is sufficient, but just in case, make sure right value pushes
+
 STZD 0 0 -- Now test pre decrement store Z on all registers (except Z)
 STZD 1 0 -- This should wrap again and have reg 27 decrement.
 STZD 2 0
@@ -357,12 +538,40 @@ STZD 27 0
 STZD 28 0
 STZD 29 0 -- Skip Z registers
 
-LDI 0 245 -- We don't test values with wraparound all the way because that is
-LDI 1 200 -- where the stack is, but we want to make sure it propagates to high
-PUSH 0 0 -- byte of register
-POP 28 0
-PUSH 1 0
-POP 29 0
+LDZI 0 0 -- Now test post increment load Z on all registers except Z
+LDZI 1 0
+LDZI 2 0
+LDZI 3 0
+LDZI 4 0
+LDZI 5 0
+LDZI 6 0
+LDZI 7 0
+LDZI 8 0
+LDZI 9 0
+LDZI 10 0
+LDZI 11 0
+LDZI 12 0
+LDZI 13 0
+LDZI 14 0
+LDZI 15 0
+LDZI 16 0
+LDZI 17 0
+LDZI 18 0
+LDZI 19 0
+LDZI 20 0
+LDZI 21 0
+LDZI 22 0
+LDZI 23 0
+LDZI 24 0
+LDZI 25 0
+LDZI 26 0
+LDZI 27 0
+LDZI 28 0
+LDZI 29 0 -- skip the Z registers
+PUSH 29 0 -- I think above is sufficient, but just in case, make sure right value pushes
+
+LDI 28 245 -- We don't test values with wraparound all the way because that is
+LDI 29 200 -- where the stack is, but we want to make sure it propagates to high byte
 
 STDY 0 0 -- First operand is destination, second is q (5 bits)
 STDY 0 1 -- We will try every possible q, with each register twice except Y
@@ -493,13 +702,10 @@ LDDY 0 60
 LDDY 0 61
 LDDY 1 62
 LDDY 1 63
+PUSH 1 0 -- I think above is sufficient, but just in case, make sure right value pushes
 
-LDI 0 245 -- We don't test values with wraparound all the way because that is
-LDI 1 200 -- where the stack is, but we want to make sure it propagates to high
-PUSH 0 0 -- byte of register
-POP 30 0
-PUSH 1 0
-POP 31 0
+LDI 30 245 -- We don't test values with wraparound all the way because that is
+LDI 31 200 -- where the stack is, but we want to make sure it propagates to high byte
 
 STDZ 0 0 -- First operand is destination, second is q (5 bits)
 STDZ 0 1 -- We will try every possible q, with each register twice except Z
@@ -630,6 +836,7 @@ LDDZ 0 60
 LDDZ 0 61
 LDDZ 1 62
 LDDZ 1 63
+PUSH 1 0 -- I think above is sufficient, but just in case, make sure right value pushes
 
 STS 0 0 -- Store register 0 to memory.  The memory address will be random
 STS 1 0
@@ -696,3 +903,4 @@ LDS 28 0
 LDS 29 0
 LDS 30 0
 LDS 31 0
+PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes

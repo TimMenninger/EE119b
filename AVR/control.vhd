@@ -717,6 +717,9 @@ begin
             -- Values used by status
             sel <= "011";
 
+            -- Don't change ZF if the result is 0
+            CPC <= '1';
+
             -- Values used by ALU
             ENInvOp  <= '0';            -- Invert operand to add a negative
             ENInvRes <= '0';            -- Invert result to finish two's comp
@@ -738,6 +741,9 @@ begin
         if (std_match(instruction, OpSBCI))  then
             -- Values used by status
             sel <= "011";
+
+            -- Don't change ZF if the result is 0
+            CPC <= '1';
 
             -- Values used by ALU
             ENInvOp  <= '0';            -- Invert operand to add a negative

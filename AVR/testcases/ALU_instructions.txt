@@ -229,6 +229,11 @@ BSET 0 0
 SBC 25 23 -- $ff - 0 - 1
 BSET 0 0
 SBC 23 23 -- 0 - 0 - 1
+EOR 23 23 -- Set up for SBC result 0 with ZF clear and show that ZF stays clear
+EOR 22 22
+INC 22 0
+BCLR 1 0 -- Clears ZF
+SBC 22 23 -- 1 - 0 - 1
 
 EOR 25 25 -- Put $fe into reg 25
 DEC 25 0
@@ -241,6 +246,9 @@ EOR 16 16 -- clear reg 16
 BSET 0 0 -- set carry
 SBCI 16 0 -- 0 - 0 - 1
 SBCI 18 100 -- arbitrary case
+EOR 16 16 -- Set up for 1 - 0 - 1 case where we shouldn't set ZF
+BCLR 1 0 -- clear ZF
+SBCI 16 0 -- Subtraction
 
 EOR 26 26 -- clear registers 26 28 and 30 for SBIW
 EOR 28 28
