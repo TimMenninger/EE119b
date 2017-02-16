@@ -67,9 +67,11 @@ package opcodes is
    constant OpLDX    :  instruction_t := "1001000-----1100";   -- LD Rd, X
    constant OpLDXI   :  instruction_t := "1001000-----1101";   -- LD Rd, X+
    constant OpLDXD   :  instruction_t := "1001000-----1110";   -- LD Rd, -X
+   constant OpLDY    :  instruction_t := "1000000-----1000";   -- LD Rd, Y
    constant OpLDYI   :  instruction_t := "1001000-----1001";   -- LD Rd, Y+
    constant OpLDYD   :  instruction_t := "1001000-----1010";   -- LD Rd, -Y
    constant OpLDDY   :  instruction_t := "10-0--0-----1---";   -- LDD Rd, Y + q
+   constant OpLDZ    :  instruction_t := "1000000-----0000";   -- LD Rd, Z
    constant OpLDZI   :  instruction_t := "1001000-----0001";   -- LD Rd, Z+
    constant OpLDZD   :  instruction_t := "1001000-----0010";   -- LD Rd, -Z
    constant OpLDDZ   :  instruction_t := "10-0--0-----0---";   -- LDD Rd, Z + q
@@ -84,9 +86,11 @@ package opcodes is
    constant OpSTX    :  instruction_t := "1001001-----1100";   -- ST X, Rr
    constant OpSTXI   :  instruction_t := "1001001-----1101";   -- ST X+, Rr
    constant OpSTXD   :  instruction_t := "1001001-----1110";   -- ST -X, Rr
+   constant OpSTY    :  instruction_t := "1000001-----1000";   -- ST Y, Rr
    constant OpSTYI   :  instruction_t := "1001001-----1001";   -- ST Y+, Rr
    constant OpSTYD   :  instruction_t := "1001001-----1010";   -- ST -Y, Rr
    constant OpSTDY   :  instruction_t := "10-0--1-----1---";   -- STD Y + q, Rr
+   constant OpSTZ    :  instruction_t := "1000001-----0000";   -- ST Z, Rr
    constant OpSTZI   :  instruction_t := "1001001-----0001";   -- ST Z+, Rr
    constant OpSTZD   :  instruction_t := "1001001-----0010";   -- ST -Z, Rr
    constant OpSTDZ   :  instruction_t := "10-0--1-----0---";   -- STD Z + q, Rr

@@ -41,8 +41,10 @@ instructions = {
     "LDX"   :  ("1001000ddddd1100", 2), # LD Rd, X
     "LDXI"  :  ("1001000ddddd1101", 2), # LD Rd, X+
     "LDXD"  :  ("1001000ddddd1110", 2), # LD Rd, -X
+    "LDY"   :  ("1000000ddddd1000", 2), # LD Rd, Y
     "LDYI"  :  ("1001000ddddd1001", 2), # LD Rd, Y+
     "LDYD"  :  ("1001000ddddd1010", 2), # LD Rd, -Y
+    "LDZ"   :  ("1000000ddddd0000", 2), # LD Rd, Z
     "LDZI"  :  ("1001000ddddd0001", 2), # LD Rd, Z+
     "LDZD"  :  ("1001000ddddd0010", 2), # LD Rd, -Z
     "LDDY"  :  ("10q0qq0ddddd1qqq", 2), # LDD Rd, Y + q
@@ -53,8 +55,10 @@ instructions = {
     "STX"   :  ("1001001rrrrr1100", 2), # ST X, Rr
     "STXI"  :  ("1001001rrrrr1101", 2), # ST X+, Rr
     "STXD"  :  ("1001001rrrrr1110", 2), # ST -X, Rr
+    "STY"   :  ("1000001rrrrr1000", 2), # ST Y, Rr
     "STYI"  :  ("1001001rrrrr1001", 2), # ST Y+, Rr
     "STYD"  :  ("1001001rrrrr1010", 2), # ST -Y, Rr
+    "STZ"   :  ("1000001rrrrr0000", 2), # ST Z, Rr
     "STZI"  :  ("1001001rrrrr0001", 2), # ST Z+, Rr
     "STZD"  :  ("1001001rrrrr0010", 2), # ST -Z, Rr
     "STDY"  :  ("10q0qq1rrrrr1qqq", 2), # STD Y + q, Rr

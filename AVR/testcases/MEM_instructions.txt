@@ -181,7 +181,6 @@ STX 31 0
 LDX 30 0
 STX 0 0
 LDX 31 0
-PUSH 31 0 -- I think above is sufficient, but just in case, make sure right value pushes
 
 LDI 26 245 -- We don't test values with wraparound all the way because that is
 LDI 27 200 -- where the stack is, but we want to make sure it propagates to high byte
@@ -235,6 +234,8 @@ LDXD 15 0
 LDXD 16 0
 LDXD 17 0
 LDXD 18 0
+STX 22 0 -- Demonstrate a store and load with a different value for X than before
+LDX 21 0
 LDXD 19 0
 LDXD 20 0
 LDXD 21 0
@@ -310,8 +311,73 @@ LDXI 30 0
 LDXI 31 0
 LDXI 0 0
 
-LDI 28 245 -- We don't test values with wraparound all the way because that is
-LDI 29 200 -- where the stack is, but we want to make sure it propagates to high byte
+STY 1 0 -- Test moving value from register to address at Y and back.  Address at Y
+LDY 0 0 -- is arbitrary.  Test this on all 30 registers.  We store and load from
+STY 2 0 -- different regs to show that loading changes the register value
+LDY 1 0
+STY 3 0
+LDY 2 0
+STY 4 0
+LDY 3 0
+STY 5 0
+LDY 4 0
+STY 6 0
+LDY 5 0
+STY 7 0
+LDY 6 0
+STY 8 0
+LDY 7 0
+STY 9 0
+LDY 8 0
+STY 10 0
+LDY 9 0
+STY 11 0
+LDY 10 0
+STY 12 0
+LDY 11 0
+STY 13 0
+LDY 12 0
+STY 14 0
+LDY 13 0
+STY 15 0
+LDY 14 0
+STY 16 0
+LDY 15 0
+STY 17 0
+LDY 16 0
+STY 18 0
+LDY 17 0
+STY 19 0
+LDY 18 0
+STY 20 0
+LDY 19 0
+STY 21 0
+LDY 20 0
+STY 22 0
+LDY 21 0
+STY 23 0
+LDY 22 0
+STY 24 0
+LDY 23 0
+STY 25 0
+LDY 24 0
+STY 26 0
+LDY 25 0
+STY 27 0
+LDY 26 0
+STY 28 0
+LDY 27 0
+STY 29 0
+LDY 28 0
+STY 30 0
+LDY 29 0
+STY 31 0
+LDY 30 0
+STY 0 0
+LDY 31 0
+
+LDI 28 245 -- Show that it wraps from $ffff to $0000
+LDI 29 255
 
 STYI 0 0 -- Now test post increment store Y on all registers except Y
 STYI 1 0
@@ -391,6 +457,8 @@ STYD 12 0
 STYD 13 0
 STYD 14 0
 STYD 15 0
+STY 22 0 -- Demonstrate a store and load with a different value for Y than before
+LDY 21 0
 STYD 16 0
 STYD 17 0
 STYD 18 0
@@ -437,8 +505,73 @@ LDYI 30 0 -- skip the Y registers
 LDYI 31 0
 LDYI 0 0
 
-LDI 30 245 -- We don't test values with wraparound all the way because that is
-LDI 31 200 -- where the stack is, but we want to make sure it propagates to high byte
+STZ 1 0 -- Test moving value from register to address at Z and back.  Address at Z
+LDZ 0 0 -- is arbitrary.  Test this on all 30 registers.  We store and load from
+STZ 2 0 -- different regs to show that loading changes the register value
+LDZ 1 0
+STZ 3 0
+LDZ 2 0
+STZ 4 0
+LDZ 3 0
+STZ 5 0
+LDZ 4 0
+STZ 6 0
+LDZ 5 0
+STZ 7 0
+LDZ 6 0
+STZ 8 0
+LDZ 7 0
+STZ 9 0
+LDZ 8 0
+STZ 10 0
+LDZ 9 0
+STZ 11 0
+LDZ 10 0
+STZ 12 0
+LDZ 11 0
+STZ 13 0
+LDZ 12 0
+STZ 14 0
+LDZ 13 0
+STZ 15 0
+LDZ 14 0
+STZ 16 0
+LDZ 15 0
+STZ 17 0
+LDZ 16 0
+STZ 18 0
+LDZ 17 0
+STZ 19 0
+LDZ 18 0
+STZ 20 0
+LDZ 19 0
+STZ 21 0
+LDZ 20 0
+STZ 22 0
+LDZ 21 0
+STZ 23 0
+LDZ 22 0
+STZ 24 0
+LDZ 23 0
+STZ 25 0
+LDZ 24 0
+STZ 26 0
+LDZ 25 0
+STZ 27 0
+LDZ 26 0
+STZ 28 0
+LDZ 27 0
+STZ 29 0
+LDZ 28 0
+STZ 30 0
+LDZ 29 0
+STZ 31 0
+LDZ 30 0
+STZ 0 0
+LDZ 31 0
+
+LDI 30 250 -- We don't test values with wraparound all the way because that is
+LDI 31 0 -- where the stack is, but we want to make sure it propagates to high byte
 
 STZI 0 0 -- Now test post increment store Z on all registers except Z
 STZI 1 0
@@ -456,6 +589,8 @@ STZI 12 0
 STZI 13 0
 STZI 14 0
 STZI 15 0
+STZ 22 0 -- Demonstrate a store and load with a different value for Z than before
+LDZ 21 0
 STZI 16 0
 STZI 17 0
 STZI 18 0

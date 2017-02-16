@@ -4,7 +4,8 @@ from generate_values import *
 
 dontCareAddr = [ "LDI", "MOV" ]
 dontCareData = [ "POP", "LDX", "LDXI", "LDXD", "LDYI", "LDYD", "LDDY",
-                 "LDZI", "LDZD", "LDDZ", "LDI", "LDS", "MOV" ]
+                 "LDZI", "LDZD", "LDDZ", "LDI", "LDS", "MOV", "LDY", "STY",
+                 "LDZ", "STZ" ]
 preDecInst = [ "LDXD", "LDYD", "LDZD", "STXD", "STYD", "STZD" ]
 postIncInst = [ "LDXI", "LDYI", "LDZI", "STXI", "STYI", "STZI" ]
 
@@ -69,26 +70,32 @@ def generate(fIn, fOut):
             postInc = 1
 
         if ("X" in vals[0]):
-            registers[26] += preDec
             expAddr = registers[27] * 256 + registers[26]
-            registers[26] += postInc
-            if (registers[26] == 0):
-                registers[27] += postInc
+            expAddr += preDec
+            newAddr = int_to_binary(expAddr + postInc, 16)
+            newAddr = [ str(i) for i in newAddr ]
+            registers[27] = binary_str_to_int("".join(newAddr[:8]))
+            registers[26] = binary_str_to_int("".join(newAddr[8:]))
             useReg = True
         if ("Y" in vals[0]):
-            registers[28] += preDec
             expAddr = registers[29] * 256 + registers[28]
-            registers[28] += postInc
-            if (registers[28] == 0):
-                registers[29] += postInc
+            expAddr += preDec
+            newAddr = int_to_binary(expAddr + postInc, 16)
+            newAddr = [ str(i) for i in newAddr ]
+            registers[29] = binary_str_to_int("".join(newAddr[:8]))
+            registers[28] = binary_str_to_int("".join(newAddr[8:]))
             useReg = True
         if ("Z" in vals[0]):
-            registers[30] += preDec
             expAddr = registers[31] * 256 + registers[30]
-            registers[30] += postInc
-            if (registers[30] == 0):
-                registers[31] += postInc
+            expAddr += preDec
+            newAddr = int_to_binary(expAddr + postInc, 16)
+            newAddr = [ str(i) for i in newAddr ]
+            registers[31] = binary_str_to_int("".join(newAddr[:8]))
+            registers[30] = binary_str_to_int("".join(newAddr[8:]))
             useReg = True
+
+        # If address is negative, wrap it around
+        expAddr %= 2**16
 
         # Figure out the memory input.  This is progDB and only used in LDS and STS
         mem = "0000000000000000"

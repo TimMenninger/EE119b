@@ -1003,6 +1003,37 @@ begin
             -- Reading from memory here.  Use default memRW <= '1'
         end if;
 
+        -- LD Rd, Y
+        if (std_match(instruction, OpLDY))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The destination register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on end of second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
+            -- Select Y word register and don't write new address to it after
+            wordReg <= "010";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
         -- LD Rd, Y+
         if (std_match(instruction, OpLDYI)) then
             -- This is a 2-clock instruction
@@ -1097,6 +1128,37 @@ begin
 
             -- Select Y word register and don't write new addr to it after
             wordReg <= "010";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Tell registers to get data from memory
+            sourceSel <= "01";
+
+            -- Reading from memory here.  Use default memRW <= '1'
+        end if;
+
+        -- LD Rd, Z
+        if (std_match(instruction, OpLDZ))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The destination register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Writing to register on end of second clock
+            if (clkCnt = 1) then
+                ENRegWr <= '0';
+                ENRegA <= '0';
+            end if;
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
+            -- Select Z word register and don't write new address to it after
+            wordReg <= "011";
 
             -- Using address from registers
             addrSel <= "01";
@@ -1354,6 +1416,29 @@ begin
             memRW <= '0';
         end if;
 
+        -- ST Y, Rr
+        if (std_match(instruction, OpSTY))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select Y word register and don't write to it after
+            wordReg <= "010";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Writing to memory here.
+            memRW <= '0';
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+        end if;
+
         -- ST Y+, Rr
         if (std_match(instruction, OpSTYI)) then
             -- This is a 2-clock instruction
@@ -1415,6 +1500,29 @@ begin
 
             -- Writing to memory here.
             memRW <= '0';
+        end if;
+
+        -- ST Z, Rr
+        if (std_match(instruction, OpSTZ))  then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- The register is implied by bits 4-8
+            regSelA <= instruction(8 downto 4);
+
+            -- Select Z word register and don't write to it after
+            wordReg <= "011";
+
+            -- Using address from registers
+            addrSel <= "01";
+
+            -- Writing to memory here.
+            memRW <= '0';
+
+            -- Don't need new instruction for second clock
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
         end if;
 
         -- ST Z+, Rr
