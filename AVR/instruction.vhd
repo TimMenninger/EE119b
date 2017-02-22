@@ -20,13 +20,15 @@ entity Instruction is
 
         fetch       : in  std_logic;        -- Get new instruction on rising edges
 
-        ROMIn       : in  instruction_t;    -- Input read from ROM
-        memInHigh   : in  data_t;           -- High byte of address from memory
-        memInLow    : in  data_t;           -- Low byte of address from memory
-        addrSel     : in  addrSelector_t;   -- Selects the source of the next IP
+        ROMIn       : in  address_t;        -- Input read from ROM
+        memIn       : in  address_t;        -- Address from memory
+        regIn       : in  address_t;        -- Address from registers
+        IPSel       : in  IPSelector_t;     -- Selects the source of the next IP
+        memInByte   : in  data_t;           -- A byte off of the stack
 
         instruction : out instruction_t;    -- Instruction to execute
-        ProgAB      : out address_t;        -- Address to read in ROM
+        nextIP      : out address_t;        -- The next IP, usually incremented IP
+        ProgAB      : out address_t;        -- Address to read in ROM / IP
         ProgDB      : out address_t         -- Data output
     );
 end Instruction;
@@ -56,17 +58,13 @@ architecture dataflow of Instruction is
     -- The instruction register
     signal IR       : instruction_t := "0000000000000000";
 
-    -- This tells us we are using register.  We need this so that instruction can
-    -- change when ROM input comes but also retain registered value if
-    -- ROM input is not a valid instruction
-    signal useReg   : std_logic     := '0';
-
-    -- Latches a byte from memory when we need a two-byte value
-    signal memInReg : data_t        := "00000000";
-
     -- This contains the next value of the instruction pointer.  It will usually
     -- be the incremented value, but may sometimes be set from a JMP CALL or RET
-    signal nextIP   : address_t     := "0000000000000000";
+    signal nextIPReg: address_t     := "0000000000000000";
+
+    -- When the IP comes from the stack (any RET call), it comes in bytes, so we
+    -- register the low byte
+    signal memInReg : data_t        := "00000000";
 
 begin
 
@@ -78,50 +76,45 @@ begin
 
     -- We output ROMIn as instruction unless a control signal has told us to latch
     -- the instruction, in which case we read from the latch.
-    instruction <= ROMIn when useReg = '0' else IR;
+    instruction <= ROMIn when clkIdx = 0 else IR;
 
     -- We always output the ROM value on the program data bus.  It is up to the
     -- readers to decide if they want to use it
     ProgDB <= ROMIn;
 
     -- Load the next IP address
-    with addrSel select nextIP <=
-        ROMIn                   when "01",
-        "00000000" & memInLow   when "10",
-        memInHigh  & memInReg   when "11",
-        IPInc                   when others;
+    with IPSel   select nextIPReg <=
+        IPInc                when "000",
+        IPInc( 7 downto 0) &
+        IPInc(15 downto 8)   when "100",
+        ROMIn                when "001",
+        memIn                when "010",
+        regIn                when "011",
+        memInByte & memInReg when others;
 
     -- This process handles the instruction regiser and program counter/instruction
     -- pointer.
     fetchInst: process (clk) is
     begin
+        -- Fetch the next instruction by loading the incremented (or explicit) IP into IP
         if (rising_edge(clk)) then
-            -- Fetch the next instruction by loading the incremented IP into IP
+            -- If fetching, load the next IP into the instruction pointer
             if (fetch = '1') then
-                -- Assume we don't use register.
-                useReg <= '0';
-
                 -- Update the instruction pointer
-                IP <= nextIP;
-
-                -- If the fetch occurs on the second clock, then we need to latch
-                -- the instruction because the next value will be a memory address
-                if (clkIdx = 1) then
-                    IR <= ROMIn;
-                    useReg <= '1';
-                end if;
+                IP <= nextIPReg;
             end if;
-        end if;
-    end process;
 
-    -- This process latches a byte from memory, for use when the instruction pointer
-    -- should be changed to a value from memory, which comes in two byte-long
-    -- parts
-    latchMemIn: process (clk) is
-    begin
-        -- Latch when addrSel indicates it is active
-        if (addrSel = "11") then
-            memInReg <= memInLow;
+            if (clkIdx = 0) then
+                -- The first clock of an instruction always has the instruction; latch it
+                IR <= ROMIn;
+            end if;
+
+            if (clkIdx = 1) then
+                -- If this happens to be a RET call, we will latch the byte from stack
+                -- on second clk.  Otherwise, this will ge ignored so do it anyway.
+                memInReg <= memInByte;
+            end if;
+
         end if;
     end process;
 

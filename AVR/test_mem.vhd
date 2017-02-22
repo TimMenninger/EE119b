@@ -18,7 +18,7 @@
 
 
 --
---  TEST_MEM
+--  MEM_TEST
 --
 --  This is the data memory access testing interface.  It just brings all
 --  the important data memory access signals out for testing along with the
@@ -46,7 +46,7 @@ library common;
 use common.common.all;
 
 
-entity  TEST_MEM  is
+entity  MEM_TEST  is
 
     port (
         IR      :  in     opcode_word;                      -- Instruction Register
@@ -59,9 +59,9 @@ entity  TEST_MEM  is
         DataWr  :  out    std_logic                         -- data write (active low)
     );
 
-end  TEST_MEM;
+end  MEM_TEST;
 
-architecture toplevel of TEST_MEM is
+architecture toplevel of MEM_TEST is
 
     -- Registers that we sometimes write to
     component Registers is
@@ -102,6 +102,7 @@ architecture toplevel of TEST_MEM is
             clk         : in  std_logic;        -- system clock
 
             instruction : in  address_t;        -- instruction
+            status      : in  status_t;         -- the flags
 
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
@@ -111,7 +112,7 @@ architecture toplevel of TEST_MEM is
             clkIdx      : out clockIndex_t;     -- clocks since instruction
             ENRes       : out std_logic;        -- set SREG to R
 
-            immed       : out data_t;           -- immediate value
+            immed       : out immediate_t;      -- immediate value
             ENALU       : out ALUSelector_t;    -- ALU operation type
             ENImmed     : out std_logic;        -- enable immed
             ENCarry     : out std_logic;        -- enable carry
@@ -138,8 +139,7 @@ architecture toplevel of TEST_MEM is
             SPWr        : out std_logic;        -- write to stack ptr
 
             -- Instruction pointer control
-            fetch       : out std_logic;        -- fetch enable
-            memCin      : out std_logic         -- Cin to memory adder
+            fetch       : out std_logic         -- Tells us when to fetch instruction
         );
     end component;
 
@@ -151,10 +151,10 @@ architecture toplevel of TEST_MEM is
 
             regAddr     : in  address_t;        -- address from registers
             SPAddr      : in  address_t;        -- address from stack ptr
-            IRAddr      : in  address_t;        -- address from instruction
-            immed       : in  addrOffset_t;     -- memory address offset
+            IPAddr      : in  address_t;        -- address from instruction
+            ProgAddr    : in  address_t;        -- address from program data bus
+            immed       : in  immediate_t;      -- memory address offset
             decrement   : in  std_logic;        -- when low, decrement
-            memCin      : in  std_logic;        -- Cin to memory address adder
 
             addrSel     : in  addrSelector_t;   -- chooses which address
             RW          : in  std_logic;        -- read/not write
@@ -184,13 +184,11 @@ architecture toplevel of TEST_MEM is
     end component;
 
     -- All the variables we need, named to match the comments in component declarations
-    signal immed    : data_t            := "00000000";
+    signal immed    : immediate_t       := "000000000000";
 
     signal sel      : flagSelector_t    := "000";
     signal flagMask : status_t          := "00000000";
     signal ENRes    : std_logic         := '0';
-
-    signal TF       : std_logic         := '0';
 
     signal BLD      : std_logic         := '0';
     signal BST      : std_logic         := '0';
@@ -224,9 +222,6 @@ architecture toplevel of TEST_MEM is
     signal SP       : address_t         := "0000000000000000";
     signal addrOut  : address_t         := "0000000000000000";
 
-    -- Instruction control
-    signal memCin   : std_logic         := '0';
-
 begin
 
     RegistersUUT : Registers
@@ -236,14 +231,14 @@ begin
 
             "00000000", -- What would otherwise be result from ALU
             DataDB,
-            immed,
+            immed(7 downto 0),
             sourceSel,
             addrOut,
             wordRegSel,
 
             BLD,
             sel,
-            TF,
+            '0',
 
             regSelA,
             regSelB,
@@ -264,6 +259,7 @@ begin
             clock,
 
             IR,
+            "00000000",
 
             BLD,
             BST,
@@ -296,7 +292,6 @@ begin
             decrement,
 
             SPWr,
-            open,
             open
         );
 
@@ -307,10 +302,10 @@ begin
 
             wordRegOut,
             SP,
+            "0000000000000000",
             ProgDB,
-            immed(5 downto 0),
+            immed,
             decrement,
-            memCin,
 
             addrSel,
             memRW,
@@ -363,7 +358,7 @@ end MEM_TESTBENCH;
 architecture testbench of MEM_TESTBENCH is
 
     -- Independent component that tests registers
-    component TEST_MEM is
+    component MEM_TEST is
         port (
             IR      :  in     address_t;    -- Instruction Register
             ProgDB  :  in     address_t;    -- second word of instr
@@ -394,7 +389,7 @@ architecture testbench of MEM_TESTBENCH is
 
 begin
 
-    MEM_UUT : TEST_MEM
+    MEM_UUT : MEM_TEST
         port map (IR, ProgDB, Reset, clock, DataAB, DataDB, DataRd, DataWr);
 
     process
@@ -450,7 +445,6 @@ begin
             -- Instruction comes in short after clock rising edge
             wait for 5 ns;
             IR <= instruction;
-            ProgDB <= instProgDB;
             DataDB <= "ZZZZZZZZ";
 
             -- Make sure signals inactive
@@ -466,7 +460,12 @@ begin
 
             -- Wait clock cycles if longer than 1 clock
             for i in 1 to nClksInt loop
-                wait for 50 ns;
+                wait for 10 ns;
+                -- ProgDB valid on second clock (third one instProgDB will be the same
+                -- so we can just keep overwriting ProgDB)
+                ProgDB <= instProgDB;
+
+                wait for 40 ns;
             end loop;
 
             -- At the end of the cycle, when clock is low, check the outputs

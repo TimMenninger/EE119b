@@ -48,8 +48,6 @@
 --          Tells us how many clocks since the beginnign of the instruction.
 --
 -- Outputs:
---      TF : std_logic
---          T flag for BLD instruction
 --      SREG : status_t
 --          Status register
 --
@@ -90,7 +88,6 @@ entity Status is
         clkIdx      : in  clockIndex_t;     -- clocks since instrctn
         ENRes       : in  std_logic;        -- set SREG to R
 
-        TF          : out std_logic;        -- always sent to regs
         SREG        : out status_t          -- status register
     );
 end Status;
@@ -133,8 +130,6 @@ begin
     --      T flag must be set manually
     --      Corrected sign flag always NF xor VF
     --
-
-    TF <= status(T);
 
     -- Half-carry flag
     HF(0) <=

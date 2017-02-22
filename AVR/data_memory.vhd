@@ -16,9 +16,9 @@
 --          The address from the register unit, will be muxed
 --      SPAddr : address_t
 --          The address from the stack pointer, will be muxed
---      IRAddr : address_t
+--      IPAddr : address_t
 --          The address from the instruction, will be muxed
---      immed : addrOffset_t
+--      immed : data_t
 --          An immediate value that will be added to the address either before
 --          or after accessing memory
 --      decrement : std_logic
@@ -51,7 +51,8 @@
 --          low portion of the last clock of the instruction.
 --
 -- Revision History:
---      26 Jan 17  Tim Menninger     Entity declaration
+--      26 Jan 17  Tim Menninger    Entity declaration
+--      07 Feb 17  Tim Menninger    Implemented memory unit
 --
 -----------------------------------------------------------------------------------------
 
@@ -75,10 +76,10 @@ entity MemoryUnit is
 
         regAddr     : in  address_t;        -- address from registers
         SPAddr      : in  address_t;        -- address from stack ptr
-        IRAddr      : in  address_t;        -- address from instruction
-        immed       : in  addrOffset_t;     -- memory address offset
+        IPAddr      : in  address_t;        -- address from instruction
+        ProgAddr    : in  address_t;        -- address from program data bus
+        immed       : in  immediate_t;      -- memory address offset
         decrement   : in  std_logic;        -- when low, decrement
-        memCin      : in  std_logic;        -- Cin to address adder
 
         addrSel     : in  addrSelector_t;   -- chooses which address
         RW          : in  std_logic;        -- read/not write
@@ -124,21 +125,27 @@ architecture workflow of MemoryUnit is
 
 begin
 
+    -- Frequently, the address needs to be offset.  This adder will do the offset
+    -- and output the new address
     AddrAdder : NBitAdder
-        port map (memCin, address, offset, open, nextAddress);
+        port map ('0', address, offset, open, nextAddress);
 
     -- We use the input select signal to choose which address input we should be
     -- using
     with addrSel    select address <=
+        SPAddr                  when "00", -- Used when pushing/popping IP
         regAddr                 when "01",
         SPAddr                  when "10",
-        IRAddr                  when others;
+        ProgAddr                when others;
 
     -- We have a decrement signal which tells us to add all 1s.  Otherwise,
-    -- we can just use the immediate and fill the high bits with 0s
+    -- we can just use the immediate and fill the high bits with 0s.  The only
+    -- way for the high bit of immed to be set is if we are using a 12-bit signed
+    -- value, in which case it is negative and we want to propagate the negative
+    -- flag.
     with decrement  select offset <=
-        "1111111111111111"      when '0',
-        "0000000000" & immed    when others;
+        "1111111111111111"                  when '0',
+        (15 downto 12 => immed(11)) & immed when others;
 
     -- When adding before, use the adder output for memory access.  Otherwise,
     -- use the muxed input
@@ -151,9 +158,10 @@ begin
     addrOut <= nextAddress;
 
     -- Set the data inout to high impedance or pass data through
-    with RW         select DataDB <=
-        dataIn                  when '0',
-        "ZZZZZZZZ"              when others;
+    DataDB <=
+        IPAddr(7 downto 0)      when RW = '0' and addrSel = "00" else
+        dataIn                  when RW = '0' and addrSel /= "00" else
+        "ZZZZZZZZ";
 
     --
     -- control process
@@ -162,7 +170,8 @@ begin
     -- to send control signals to memory.  When we are using an IR address, it is
     -- a three-clock instruction so we go on clkIdx = 2.  Otherwise, clkIdx = 1.
     -- Read and write signals only go active for half a clock cycle when it is
-    -- low.
+    -- low.  When we are pushing or popping the instruction pointer, we will have
+    -- a third clock, during which we also access memory.
     --
     control : process (clk) is
     begin
@@ -171,7 +180,7 @@ begin
         DataWr <= '1';
 
         if (clk = '0') then
-            if ((clkIdx = 2 and addrSel = "11") or
+            if ((clkIdx = 2 and (addrSel = "11")) or
                 (clkIdx = 1 and (addrSel = "10" or addrSel = "01"))) then
                 DataRd <= not RW;
                 DataWr <= RW;

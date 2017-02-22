@@ -83,6 +83,8 @@
 --          one bit instead of a 16-bit -1
 --      SPWr : std_logic
 --          Active low, indicates that the stack pointer should latch
+--      IPSel : IPSelector_t
+--          Chooses the source of the next IP
 --
 -- Revision History:
 --      26 Jan 17  Tim Menninger     Entity declaration
@@ -94,7 +96,7 @@
 -- bring in the necessary packages
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
+use ieee.std_logic_unsigned.conv_integer;
 use ieee.numeric_std.all;
 
 library opcodes;
@@ -114,6 +116,7 @@ entity ControlUnit is
         clk         : in  std_logic;        -- system clock
 
         instruction : in  instruction_t;    -- instruction
+        status      : in  status_t;         -- the flags
 
         BLD         : out std_logic;        -- '1' when BLD
         BST         : out std_logic;        -- '1' when BST
@@ -126,7 +129,7 @@ entity ControlUnit is
         ENRes       : out std_logic;        -- set SREG to R
 
         -- ALU control
-        immed       : out data_t;           -- immediate value
+        immed       : out immediate_t;      -- immediate value
         ENALU       : out ALUSelector_t;    -- ALU operation type
         ENImmed     : out std_logic;        -- enable immed
         ENCarry     : out std_logic;        -- enable carry
@@ -154,8 +157,8 @@ entity ControlUnit is
         SPWr        : out std_logic;        -- write to stack ptr
 
         -- Instruction register and program counter control
-        fetch       : out std_logic;        -- Tells us when to fetch instruction
-        memCin      : out std_logic         -- Cin to memory address adder
+        IPSel       : out IPSelector_t;     -- Tells which IP source is next IP
+        fetch       : out std_logic         -- Tells us when to fetch instruction
     );
 end ControlUnit;
 
@@ -212,7 +215,7 @@ begin
         flagMask <= "11111111";     -- Change no flags by default
         ENRes    <= '1';            -- Rare that ALU sets SREG
 
-        immed    <= "00000000";     -- Arbitrary, for INC instructions
+        immed    <= "000000000000"; -- Arbitrary, for INC instructions
         ENALU    <= "00";           -- Arbitrary
         ENImmed  <= '1';            -- Usually not using immediate value
         ENCarry  <= '1';            -- Arbitrary
@@ -231,7 +234,6 @@ begin
         numClks  <= 0;              -- Assume this is a 1-clock instruction
 
         fetch    <= '1';            -- Assume we are fetching instruction next clock
-        memCin   <= '0';            -- Normally not adding 1 to address + offset
 
         -----------------------------------------------------------------------------
         --
@@ -297,15 +299,14 @@ begin
                     -- On first clock:
                     --      immed: Add value from instruction
                     --      Don't fetch instruction for second half
-                    immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
+                    immed <= "000000" &
+                             instruction(7 downto 6) & instruction(3 downto 0);
                     fetch <= '0';
                 when others =>
                     -- On second clock:
                     --      ENCarry: Use carry from low byte add
-                    --      immed: Add 0 with carry to propagate add to high byte
                     --      regSelA: One greater than from instruction
                     ENCarry <= '0';
-                    immed <= "00000000";
                     regSelA(0) <= '1';
             end case;
 
@@ -347,7 +348,7 @@ begin
 
             -- Using immediate value, want to enable it
             ENImmed <= '0';
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            immed <= "0000" & instruction(11 downto 8) & instruction(3 downto 0);
 
             -- We both read from and write to registers in this instruction
             ENRegA <= '0';
@@ -417,7 +418,7 @@ begin
             ENRes <= '0';               -- Setting bit
 
             -- Values used by ALU
-            ENImmed  <= '0';            -- OR this immediate with opA to get all 0's,
+            ENImmed  <= '0';            -- AND this immediate with opA to get all 0's,
                                         -- which will be inverted to be all 1's
                                         -- instead, then the status entity will then
                                         -- extract a bit based on the flag mask
@@ -442,7 +443,7 @@ begin
 
             -- For this to work properly, the ALU has to put the contents of register
             -- A onto its result bus.  We will AND it with 1's
-            immed <= "11111111";
+            immed(7 downto 0) <= "11111111";
             ENImmed <= '0';
             ENALU <= "10";
 
@@ -455,9 +456,9 @@ begin
             sel <= "010";
 
             -- Values used by ALU
-            immed    <= "11111111";     -- a XOR 1 always inverts a
-            ENALU    <= "11";           -- Use XOR
-            ENImmed  <= '0';            -- Usually not using immediate value
+            immed(7 downto 0) <= "11111111";     -- a XOR -1 always inverts a
+            ENALU             <= "11";           -- Use XOR
+            ENImmed           <= '0';            -- Usually not using immediate value
 
             -- Rd in bits 8-4
             regSelA <= instruction(8 downto 4);
@@ -528,7 +529,7 @@ begin
             -- Values used by registers
             -- Rd in bits 7-4, K in bits 11-8, 3-0
             regSelA <= "1" & instruction(7 downto 4);
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            immed <= "0000" & instruction(11 downto 8) & instruction(3 downto 0);
 
             -- We only read on compares
             ENRegA <= '0';
@@ -543,7 +544,7 @@ begin
             sel <= "100";
 
             -- Values used by ALU
-            immed    <= "00000001";     -- Subracting 1
+            immed(0) <= '1';            -- Subracting 1
             ENImmed  <= '0';            -- Use immediate
             ENInvOp  <= '0';            -- Invert operand for adding negative
             ENInvRes <= '0';            -- Add one to result to finish two's comp
@@ -586,7 +587,7 @@ begin
             sel <= "101";
 
             -- Values used by ALU
-            immed    <= "00000001";     -- 1 for INC adder
+            immed(0) <= '1';            -- 1 for INC adder
             ENImmed  <= '0';            -- Usually not using immediate value
 
             -- Rd in bits 8-4
@@ -650,10 +651,10 @@ begin
             sel <= "110";
 
             -- Values used by ALU
-            immed    <= "11111111";     -- a XOR 1 inverts a
-            ENALU    <= "11";           -- Use XOR
-            ENImmed  <= '0';            -- Use immediate
-            ENInvRes <= '0';            -- Adds one to output of XOR
+            immed(7 downto 0) <= "11111111";     -- a XOR 1 inverts a
+            ENALU             <= "11";           -- Use XOR
+            ENImmed           <= '0';            -- Use immediate
+            ENInvRes          <= '0';            -- Adds one to output of XOR
 
             -- Rd in bits 8-4
             regSelA <= instruction(8 downto 4);
@@ -694,7 +695,7 @@ begin
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
             regSelA <= "1" & instruction(7 downto 4);
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            immed <= "0000" & instruction(11 downto 8) & instruction(3 downto 0);
             ENImmed  <= '0';            -- Instruction uses immediate
 
             -- We both read from and write to registers in this instruction
@@ -765,7 +766,7 @@ begin
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
             regSelA <= "1" & instruction(7 downto 4);
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            immed <= "0000" & instruction(11 downto 8) & instruction(3 downto 0);
             ENImmed  <= '0';            -- Subtract immediate
 
             -- We both read from and write to registers in this instruction
@@ -802,19 +803,18 @@ begin
                     --      ENInvOp: We add two's complement on low byte
                     --      ENInvRes: Finish two's complement
                     --      Don't fetch instruction for second half
-                    immed <= "00" & instruction(7 downto 6) & instruction(3 downto 0);
+                    immed <= "000000" &
+                             instruction(7 downto 6) & instruction(3 downto 0);
                     ENInvOp <= '0';
                     ENInvRes <= '0';
                     fetch <= '0';
                 when others =>
                     -- On second clock:
                     --      ENCarry: Use carry from low byte add
-                    --      immed: Add 0 with carry to propagate add to high byte
                     --      regSelA: One greater than from instruction
                     ENCarry <= '0';
                     ENInvOp <= '0';
                     ENInvRes <= '0';
-                    immed <= "00000000";
                     regSelA(0) <= '1';
             end case;
 
@@ -862,7 +862,7 @@ begin
 
             -- Rd in bits 7-4, K in bits 11-8, 3-0
             regSelA <= "1" & instruction(7 downto 4);
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            immed <= "0000" & instruction(11 downto 8) & instruction(3 downto 0);
             ENImmed  <= '0';            -- Using immediate
 
             -- We both read from and write to registers in this instruction
@@ -892,8 +892,8 @@ begin
         -- Data memory control
         decrement <= '1';               -- don't decrement
         memRW <= '1';                   -- arbitrary, read/write to memory
-        addrSel <= "00";                -- address mux: 0 = none, 1 = regs
-                                        --              2 = SP, 3 = instruction
+        addrSel <= "01";                -- address mux: 0 = IP, 1 = regs
+                                        --              2 = SP, 3 = ProgDB
         wordReg <= "000";               -- 1 = X, 2 = Y, 3 = Z, 0 = none
                                         -- bit 2 is 1 when writing new addr
         addBefore <= '0';               -- assume the address we want includes
@@ -925,9 +925,6 @@ begin
             -- Select X word register and don't write new address to it after
             wordReg <= "001";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -955,9 +952,6 @@ begin
 
             -- Select X word register and write new address to it after
             wordReg <= "101";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Tell registers to get data from memory
             sourceSel <= "01";
@@ -991,9 +985,6 @@ begin
             -- Select X word register and write new address to it after
             wordReg <= "101";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -1025,9 +1016,6 @@ begin
             -- Select Y word register and don't write new address to it after
             wordReg <= "010";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -1055,9 +1043,6 @@ begin
 
             -- Select Y word register and write new addr to it after
             wordReg <= "110";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Tell registers to get data from memory
             sourceSel <= "01";
@@ -1091,9 +1076,6 @@ begin
             -- Select Y word register and write new addr to it after
             wordReg <= "110";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -1109,8 +1091,10 @@ begin
             numClks <= 1;
 
             -- Use the immediate value as address offset (high bits are 0)
-            immed(5 downto 0) <= instruction(13) & instruction(11 downto 10) &
-                                 instruction(2 downto 0);
+            immed <= "000000" &
+                     instruction(13) &
+                     instruction(11 downto 10) &
+                     instruction(2 downto 0);
 
             -- Writing to register on second clock
             if (clkCnt = 1) then
@@ -1128,9 +1112,6 @@ begin
 
             -- Select Y word register and don't write new addr to it after
             wordReg <= "010";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Tell registers to get data from memory
             sourceSel <= "01";
@@ -1160,9 +1141,6 @@ begin
             -- Select Z word register and don't write new address to it after
             wordReg <= "011";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -1190,9 +1168,6 @@ begin
 
             -- Select Z word register and write new addr to it after
             wordReg <= "111";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Tell registers to get data from memory
             sourceSel <= "01";
@@ -1226,9 +1201,6 @@ begin
             -- Select Z word register and write new addr to it after
             wordReg <= "111";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -1244,8 +1216,10 @@ begin
             numClks <= 1;
 
             -- Use the immediate value as address offset (high bits are 0)
-            immed(5 downto 0) <= instruction(13) & instruction(11 downto 10) &
-                                 instruction(2 downto 0);
+            immed <= "000000" &
+                     instruction(13) &
+                     instruction(11 downto 10) &
+                     instruction(2 downto 0);
 
             -- Writing to register on second clock
             if (clkCnt = 1) then
@@ -1264,9 +1238,6 @@ begin
             -- Select Z word register and don't write new addr to it after
             wordReg <= "011";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Tell registers to get data from memory
             sourceSel <= "01";
 
@@ -1283,7 +1254,7 @@ begin
             ENRegA <= '0';
 
             -- Put k into immediate value
-            immed <= instruction(11 downto 8) & instruction(3 downto 0);
+            immed <= "0000" & instruction(11 downto 8) & instruction(3 downto 0);
 
             -- The data source for registers is from the immediate
             sourceSel <= "10";
@@ -1341,9 +1312,6 @@ begin
             -- Select X word register and don't write to it after
             wordReg <= "001";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Writing to memory here.
             memRW <= '0';
 
@@ -1374,9 +1342,6 @@ begin
             -- Select X word register and write to it after
             wordReg <= "101";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Increment after
             immed(0) <= '1';
             addBefore <= '1';
@@ -1406,9 +1371,6 @@ begin
             -- Select X word register and write to it after
             wordReg <= "101";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Decrement before
             decrement <= '0';
 
@@ -1426,9 +1388,6 @@ begin
 
             -- Select Y word register and don't write to it after
             wordReg <= "010";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Writing to memory here.
             memRW <= '0';
@@ -1460,9 +1419,6 @@ begin
             -- Select Y word register and write to it after
             wordReg <= "110";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Increment after
             immed(0) <= '1';
             addBefore <= '1';
@@ -1492,9 +1448,6 @@ begin
             -- Select Y word register and write to it after
             wordReg <= "110";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Decrement before
             decrement <= '0';
 
@@ -1512,9 +1465,6 @@ begin
 
             -- Select Z word register and don't write to it after
             wordReg <= "011";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Writing to memory here.
             memRW <= '0';
@@ -1546,9 +1496,6 @@ begin
             -- Select Z word register and write new addr to it after
             wordReg <= "111";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Increment after
             immed(0) <= '1';
             addBefore <= '1';
@@ -1578,9 +1525,6 @@ begin
             -- Select Z word register and write new addr to it after
             wordReg <= "111";
 
-            -- Using address from registers
-            addrSel <= "01";
-
             -- Decrement before
             decrement <= '0';
 
@@ -1602,9 +1546,6 @@ begin
 
             -- Select Y word register and don't write to it after
             wordReg <= "010";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Writing to memory here.
             memRW <= '0';
@@ -1629,9 +1570,6 @@ begin
 
             -- Select Z word register and don't write new addr to it after
             wordReg <= "011";
-
-            -- Using address from registers
-            addrSel <= "01";
 
             -- Writing to memory here.
             memRW <= '0';
@@ -1662,7 +1600,6 @@ begin
                 fetch <= '0';
             end if;
         end if;
-
 
         -----------------------------------------------------------------------------
         --
@@ -1735,6 +1672,372 @@ begin
             -- Writing to stack here.
             memRW <= '0';
         end if;
+
+        -----------------------------------------------------------------------------
+        --
+        -- Flow Control
+        --
+        -----------------------------------------------------------------------------
+
+        IPSel <= "000";     -- By default, just increment the instruction pointer
+
+        -- Jump to address
+        if (std_match(instruction, OpJMP))      then
+            -- This is a 3-clock instruction
+            numClks <= 2;
+
+            -- On first clock, we increment IP. Then, IP should get the second
+            -- value read from ROM during this instruction
+            if (not (clkCnt = 0)) then
+                IPSel <= "001";
+            end if;
+
+            -- Need new instruction (memory) for second clock, but not third
+            if (clkCnt = 1) then
+                fetch <= '0';
+            end if;
+        end if;
+
+        -- Relative jump
+        if (std_match(instruction, OpRJMP))     then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- We do not need a second word from ROM
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
+            -- Tell memory unit that the base address it should use is from IP.
+            -- No memory access is made, we are just utilizing the adder for branching
+            -- instructions since the memory unit isn't using it.  The address from
+            -- IP is already incremented
+            addrSel <= "11";
+
+            -- The immediate value that is being added to the instruction pointer
+            -- to execute the relative jump is in the low 12 bits of the instruction
+            immed <= instruction(11 downto 0);
+
+            -- Tell instruction register that the new IP should come from memory
+            IPSel <= "010";
+        end if;
+
+        -- Indirect jump
+        if (std_match(instruction, OpIJMP))     then
+            -- This is a 2-clock instruction
+            numClks <= 1;
+
+            -- We do not need a second word from ROM
+            if (clkCnt = 0) then
+                fetch <= '0';
+            end if;
+
+            -- Tell instruction register that the new IP should come from registers
+            IPSel <= "011";
+
+            -- We need to tell registers to output the Z register on its word output.
+            -- Having the high bit clear tells registers there is no write.
+            wordReg <= "011";
+        end if;
+
+        -- Call function
+        if (std_match(instruction, OpCALL))     then
+            -- Here, we get the instruction and memory address, then push the incremented
+            -- stack pointer high byte then low byte
+
+            -- This is a 4-clock instruction
+            numClks <= 3;
+
+            -- We only fetch on the first clock and the last one
+            if (clkCnt = 1 or clkCnt = 2) then
+                fetch <= '0';
+            end if;
+
+            -- On first clock, we increment IP. Then, we should get IP from ROM.  For
+            -- the middle two clocks, we keep IP the same so we can push it
+            if (clkCnt = 3) then
+                IPSel <= "001";
+            end if;
+
+            -- After the increment on the first clock, the already-incremented IP
+            -- from the instruction component will be two greater than the original
+            -- IP, which we are to push
+            if (clkCnt = 1) then
+                -- Reverse the two bytes in the IP so we can push the correct one
+                -- from the low byte of the output (high byte pushed first)
+                IPSel(2) <= '1';
+            end if;
+
+            -- Writing over stack pointer value for both bytes of IP
+            if (clkCnt = 1 or clkCnt = 2) then
+                SPWr <= '0';
+
+                -- Writing to stack here when clkCnt is 1 or 2
+                memRW <= '0';
+            end if;
+
+            -- Decrement stack pointer address after
+            decrement <= '0';
+            addBefore <= '1';
+
+            -- Using address from stack pointer when writing to memory, but the data
+            -- will be on the IP address line
+            addrSel <= "00";
+        end if;
+
+        -- Relative call
+        if (std_match(instruction, OpRCALL))    then
+            -- This is a 3-clock instruction
+            numClks <= 2;
+
+            -- On the first clock, we push the high byte of the IP
+            if (clkCnt = 0) then
+                -- Reverse the two bytes in the IP so we can push the correct one
+                -- from the low byte of the output (high byte pushed first)
+                IPSel(2) <= '1';
+            end if;
+
+            -- On the last clock, the adder in memory should use the address from
+            -- the instruction pointer
+            addrSel <= "11";
+
+            -- The value being added will be in the instruction.  If we've moved on to
+            -- the stack part, then decrement being active will take precedence
+            immed <= instruction(11 downto 0);
+
+            -- Writing over stack pointer value for both bytes of IP
+            if (clkCnt = 0 or clkCnt = 1) then
+                SPWr <= '0';
+
+                -- Using address from stack pointer when writing to memory, but the data
+                -- will be on the IP address line
+                addrSel <= "00";
+
+                -- We fetch the new address on clock 1, before the adder in data memory is
+                -- used for pushing
+                fetch <= '0';
+
+                -- Decrement stack pointer address after
+                decrement <= '0';
+
+                -- Writing to stack here.  Oonly write when clkCnt is 1 or 0
+                memRW <= '0';
+            end if;
+
+            -- Add the offset before accessing memory (only relevant for pushing part)
+            addBefore <= '1';
+
+            -- Tell instruction register that the new IP should come from the second
+            -- value read from data memory
+            IPSel <= "010";
+        end if;
+
+        -- Indirect call
+        if (std_match(instruction, OpICALL))    then
+            -- This is a 3-clock instruction
+            numClks <= 2;
+
+            -- On the first clock, we push the high byte of the IP
+            if (clkCnt = 0) then
+                -- Reverse the two bytes in the IP so we can push the correct one
+                -- from the low byte of the output (high byte pushed first)
+                IPSel(2) <= '1';
+            end if;
+
+            -- On the last clock, the adder in memory should use the address from
+            -- the instruction pointer
+            addrSel <= "11";
+
+            -- The value being added will be in the instruction.  If we've moved on to
+            -- the stack part, then decrement being active will take precedence
+            immed <= instruction(11 downto 0);
+
+            -- Writing over stack pointer value for both bytes of IP
+            if (clkCnt = 0 or clkCnt = 1) then
+                SPWr <= '0';
+
+                -- Using address from stack pointer when writing to memory, but the data
+                -- will be on the IP address line
+                addrSel <= "00";
+
+                -- We fetch the new address on clock 2
+                fetch <= '0';
+
+                -- Decrement stack pointer address after
+                decrement <= '0';
+
+                -- Writing to stack here.  Oonly write when clkCnt is 1 or 0
+                memRW <= '0';
+            end if;
+
+            -- Add the offset before accessing memory (only relevant for pushing part)
+            addBefore <= '1';
+
+            -- Tell instruction register that the new IP should come from registers
+            IPSel <= "011";
+
+            -- We need to tell registers to output the Z register on its word output.
+            -- Having the high bit clear tells registers there is no write.
+            wordReg <= "011";
+        end if;
+
+        -- Return
+        if (std_match(instruction, OpRET))      then
+            -- We pop the top two bytes off of the stack and into the IP.  The top
+            -- of the stack at the beginning of the instruction contains the low
+            -- byte of IP
+
+            -- This is a 4-clock instruction
+            numClks <= 3;
+
+            -- Writing to stack pointer as result of POP on first two clocks
+            if (clkCnt = 0 or clkCnt = 1) then
+                SPWr <= '0';
+            end if;
+
+            -- We read in bytes of the IP on the second and third clock edges
+            if (clkCnt = 0 or clkCnt = 3) then
+                fetch <= '0';
+            end if;
+
+            -- Using address from stack pointer
+            addrSel <= "00";
+
+            -- The IP we are getting is popped off of the stack
+            IPSel <= "110";
+
+            -- Increment before
+            immed(0) <= '1';
+        end if;
+
+        -- Return from interrupt
+        if (std_match(instruction, OpRETI))     then
+            -- This does exactly what RET does, but sets the I flag in addition
+
+            -- This is a 4-clock instruction
+            numClks <= 3;
+
+            -- Writing to stack pointer as result of POP on first two clocks
+            if (clkCnt = 0 or clkCnt = 1) then
+                SPWr <= '0';
+            end if;
+
+            -- We read in bytes of the IP on the second and third clock edges
+            if (clkCnt = 0 or clkCnt = 3) then
+                fetch <= '0';
+            end if;
+
+            -- Using address from stack pointer
+            addrSel <= "00";
+
+            -- The IP we are getting is popped off of the stack
+            IPSel <= "110";
+
+            -- Increment before
+            immed(0) <= '1';
+
+            -- Trick ALU into sending all 1's to status, from which mask will take
+            -- the one we care about
+            -- Values used by status
+            ENRes <= '0';               -- Setting bit
+
+            -- Values used by ALU
+            ENImmed  <= '0';            -- AND the immediate (which has bit 7 clear),
+                                        -- which will clear the output bit 7.  We then
+                                        -- invert the output to make that a 1 and store
+                                        -- that into our status
+            ENALU    <= "10";           -- Want to AND in the ALU
+            ENInvRes <= '0';            -- Invert output 0's to output 1's
+
+            -- Unmask the I flag so we set it
+            flagMask(7) <= '0';
+        end if;
+
+        -- Branch if status bit clear
+        if (std_match(instruction, OpBRBC))     then
+            -- We will branch no matter what if we make it to the second clock edge,
+            -- so prepare as if it is two clocks and if it ends up being one, then
+            -- we don't branch
+
+            -- This is one clock if we are not branching, two otherwise.  We branch
+            -- if the b'th bit in status is cleared.  Also if here, we want to
+            -- change the IP selector to be from the memory adder instead of
+            -- just incrementing
+            if (status(conv_integer(instruction(2 downto 0))) = '0') then
+                numClks <= 1;
+                IPSel <= "010";
+            end if;
+
+            -- We will just fetch on the first clock, and let the control signal
+            -- determine whether we fetch an incremented IP or an IP from memory
+            if (clkCnt = 1) then
+                fetch <= '0';
+            end if;
+
+            -- Tell memory unit that the base address it should use is from IP.
+            -- No memory access is made, we are just utilizing the adder for branching
+            -- instructions since the memory unit isn't using it.  The address from
+            -- IP is already incremented
+            addrSel <= "11";
+
+            -- The immediate value that is being added to the instruction pointer
+            -- to execute the relative jump is in the low 12 bits of the instruction
+            immed <= (11 downto 8 => instruction(7)) & instruction(7 downto 0);
+        end if;
+
+        -- Branch if status bit set
+        if (std_match(instruction, OpBRBS))     then
+            -- We will branch no matter what if we make it to the second clock edge,
+            -- so prepare as if it is two clocks and if it ends up being one, then
+            -- we don't branch
+
+            -- This is one clock if we are not branching, two otherwise.  We branch
+            -- if the b'th bit in status is cleared.  Also if here, we want to
+            -- change the IP selector to be from the memory adder instead of
+            -- just incrementing
+            if (status(conv_integer(instruction(2 downto 0))) = '1') then
+                numClks <= 1;
+                IPSel <= "010";
+            end if;
+
+            -- This is one clock if we are not branching, two otherwise.  We branch
+            -- if the b'th bit in status is cleared.  Also if here, we want to
+            -- change the IP selector to be from the memory adder instead of
+            -- just incrementing
+            if (status(conv_integer(instruction(2 downto 0))) = '0') then
+                numClks <= 1;
+                IPSel <= "010";
+            end if;
+
+            -- We will just fetch on the first clock, and let the control signal
+            -- determine whether we fetch an incremented IP or an IP from memory
+            if (clkCnt = 1) then
+                fetch <= '0';
+            end if;
+
+            -- Tell memory unit that the base address it should use is from IP.
+            -- No memory access is made, we are just utilizing the adder for branching
+            -- instructions since the memory unit isn't using it.  The address from
+            -- IP is already incremented
+            addrSel <= "11";
+
+            -- The immediate value that is being added to the instruction pointer
+            -- to execute the relative jump is in the low 12 bits of the instruction
+            immed <= (11 downto 8 => instruction(7)) & instruction(7 downto 0);
+        end if;
+
+        -- Skip if arguments are equal
+        if (std_match(instruction, OpCPSE))     then
+        end if;
+
+        -- Skip if bit clear
+        if (std_match(instruction, OpSBRC))     then
+        end if;
+
+        -- Skip if bit set
+        if (std_match(instruction, OpSBRS))     then
+        end if;
+
 
     end process decode;
 

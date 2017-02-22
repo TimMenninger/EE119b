@@ -19,7 +19,7 @@
 
 
 --
---  TEST_REG
+--  REG_TEST
 --
 --  This is the register array testing interface.  It just brings all the
 --  important register array signals out for testing along with the
@@ -44,7 +44,7 @@ library common;
 use common.common.all;
 
 
-entity  TEST_REG  is
+entity  REG_TEST  is
     port(
         IR       :  in  opcode_word;                        -- Instruction Register
         RegIn    :  in  std_logic_vector(7 downto 0);       -- input register bus
@@ -52,9 +52,9 @@ entity  TEST_REG  is
         RegAOut  :  out std_logic_vector(7 downto 0);       -- register bus A out
         RegBOut  :  out std_logic_vector(7 downto 0)        -- register bus B out
     );
-end  TEST_REG;
+end  REG_TEST;
 
-architecture toplevel of TEST_REG is
+architecture toplevel of REG_TEST is
 
     -- ALU component we are testing
     component ALU is
@@ -135,7 +135,6 @@ architecture toplevel of TEST_REG is
             clkIdx      : in  clockIndex_t;     -- clks since instrctn
             ENRes       : in  std_logic;        -- set SREG to R
 
-            TF          : out std_logic;        -- always sent to regs
             SREG        : out status_t          -- status register
         );
     end component;
@@ -146,6 +145,7 @@ architecture toplevel of TEST_REG is
             clk         : in  std_logic;        -- system clock
 
             instruction : in  instruction_t;    -- instruction
+            status      : in  status_t;         -- the flags
 
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
@@ -156,7 +156,7 @@ architecture toplevel of TEST_REG is
             clkIdx      : out clockIndex_t;     -- clocks since instruction
             ENRes       : out std_logic;        -- set SREG to R
 
-            immed       : out data_t;           -- immediate value
+            immed       : out immediate_t;      -- immediate value
             ENALU       : out ALUSelector_t;    -- ALU operation type
             ENImmed     : out std_logic;        -- enable immed
             ENCarry     : out std_logic;        -- enable carry
@@ -183,8 +183,7 @@ architecture toplevel of TEST_REG is
             SPWr        : out std_logic;        -- write to stack ptr
 
             -- Instruction pointer control
-            fetch       : out std_logic;        -- fetch enable
-            memCin      : out std_logic         -- Cin to memory adder
+            fetch       : out std_logic         -- Tells us when to fetch instruction
         );
     end component;
 
@@ -196,7 +195,6 @@ architecture toplevel of TEST_REG is
     signal CPC          : std_logic         := '0';
 
     signal memIn        : data_t            := "00000000";
-    signal immedIn      : data_t            := "00000000";
     signal sourceSel    : regInSelector_t   := "00";
 
     signal wordRegIn    : dataWord_t        := "0000000000000000";
@@ -206,7 +204,7 @@ architecture toplevel of TEST_REG is
     signal flagMask     : status_t          := "00000000";
     signal ENRes        : std_logic         := '0';
 
-    signal immed        : data_t            := "00000000";
+    signal immed        : immediate_t       := "000000000000";
     signal ENALU        : ALUSelector_t     := "00";
     signal ENImmed      : std_logic         := '0';
     signal ENCarry      : std_logic         := '0';
@@ -232,8 +230,6 @@ architecture toplevel of TEST_REG is
 
     signal clkIdx       : clockIndex_t      := 0;
 
-    signal TF           : std_logic         := '0';
-
     signal SREG         : status_t          := "00000000";
 
     signal dataOutA     : data_t            := "00000000";
@@ -256,6 +252,7 @@ begin
             clock,
 
             IR,
+            SREG,
 
             BLD,
             BST,
@@ -290,7 +287,6 @@ begin
 
             SPWr,
 
-            open,
             open
         );
 
@@ -301,14 +297,14 @@ begin
 
             RegIn,
             memIn,
-            immed,
+            immed(7 downto 0),
             sourceSel,
             wordRegIn,
             wordRegSel,
 
             BLD,
             sel,
-            TF,
+            SREG(6),
 
             regSelA,
             regSelB,
@@ -343,7 +339,6 @@ begin
             clkIdx,
             ENRes,
 
-            TF,
             SREG
         );
 
@@ -351,7 +346,7 @@ begin
         port map (
             dataOutA,
             dataOutB,
-            immed,
+            immed(7 downto 0),
             SREG,
 
             ENALU,
@@ -399,7 +394,7 @@ end REG_TESTBENCH;
 architecture testbench of REG_TESTBENCH is
 
     -- Independent component that tests registers
-    component TEST_REG is
+    component REG_TEST is
 
         port(
             IR       :  in  opcode_word;                        -- Instruction Register
@@ -426,7 +421,7 @@ architecture testbench of REG_TESTBENCH is
 
 begin
 
-    REG_UUT : TEST_REG
+    REG_UUT : REG_TEST
         port map (IR, regIn, clock, regAOut, regBOut);
 
     process

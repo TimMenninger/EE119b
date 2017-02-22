@@ -24,12 +24,12 @@ package common is
     -- Addresses
     subtype address_t       is std_logic_vector(15 downto 0);
 
-    -- The offset of the address when accessing memory
-    subtype addrOffset_t    is std_logic_vector( 5 downto 0);
-
     -- Data length
     subtype data_t          is std_logic_vector( 7 downto 0);
     subtype dataWord_t      is std_logic_vector(15 downto 0);
+
+    -- Immediate values can be up to 12 bits
+    subtype immediate_t     is std_logic_vector(11 downto 0);
 
     -------------------------------------------------------------------------------------
     --
@@ -73,6 +73,9 @@ package common is
     -- Selects which address to pay attention to on the memory addressing unit when
     -- accessing memory
     subtype addrSelector_t  is std_logic_vector( 1 downto 0);
+
+    -- Selects the source of the next IP
+    subtype IPSelector_t    is std_logic_vector( 2 downto 0);
 
     -- Selects a bit in the flag
     subtype flagSelector_t  is std_logic_vector( 2 downto 0);

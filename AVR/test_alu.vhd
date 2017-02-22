@@ -18,7 +18,7 @@
 
 
 --
---  TEST_ALU
+--  ALU_TEST
 --
 --  This is the ALU testing interface.  It just brings all the important
 --  ALU signals out for testing along with the Instruction Register.
@@ -45,7 +45,7 @@ use ieee.numeric_std.all;
 library common;
 use common.common.all;
 
-entity  TEST_ALU  is
+entity  ALU_TEST  is
 
     port (
         IR        :  in  opcode_word;                       -- Instruction Register
@@ -56,9 +56,9 @@ entity  TEST_ALU  is
         StatReg   :  out std_logic_vector(7 downto 0)       -- status register
     );
 
-end  TEST_ALU;
+end  ALU_TEST;
 
-architecture toplevel of TEST_ALU is
+architecture toplevel of ALU_TEST is
 
     -- ALU component we are testing
     component ALU is
@@ -139,7 +139,6 @@ architecture toplevel of TEST_ALU is
             clkIdx      : in  clockIndex_t;     -- clks since instrctn
             ENRes       : in  std_logic;        -- set SREG to R
 
-            TF          : out std_logic;        -- always sent to regs
             SREG        : out status_t          -- status register
         );
     end component;
@@ -150,6 +149,7 @@ architecture toplevel of TEST_ALU is
             clk         : in  std_logic;        -- system clk
 
             instruction : in  instruction_t;    -- instruction
+            status      : in  status_t;         -- the flags
 
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
@@ -160,7 +160,7 @@ architecture toplevel of TEST_ALU is
             clkIdx      : out clockIndex_t;     -- clocks since instruction
             ENRes       : out std_logic;        -- set SREG to R
 
-            immed       : out data_t;           -- immediate value
+            immed       : out immediate_t;      -- immediate value
             ENALU       : out ALUSelector_t;    -- ALU operation type
             ENImmed     : out std_logic;        -- enable immed
             ENCarry     : out std_logic;        -- enable carry
@@ -185,15 +185,14 @@ architecture toplevel of TEST_ALU is
             SPWr        : out std_logic;        -- write to stack ptr
 
             -- Instruction pointer control
-            fetch       : out std_logic;        -- fetch enable
-            memCin      : out std_logic         -- Cin to memory adder
+            fetch       : out std_logic         -- Tells us when to fetch instruction
         );
     end component;
 
     -- All the variables we need
     signal reset    : std_logic         := '1';
 
-    signal immed    : data_t            := "00000000";
+    signal immed    : immediate_t       := "000000000000";
     signal SREG     : status_t          := "00000000";
 
     signal ENALU    : ALUSelector_t     := "00";
@@ -215,15 +214,12 @@ architecture toplevel of TEST_ALU is
     signal flagMask : status_t          := "00000000";
     signal ENRes    : std_logic         := '0';
 
-    signal TF       : std_logic         := '0';
-
     signal BLD      : std_logic         := '0';
     signal BST      : std_logic         := '0';
     signal CPC      : std_logic         := '0';
     signal clkIdx   : clockIndex_t      := 0;
 
     signal memIn      : data_t          := "00000000";
-    signal immedIn    : data_t          := "00000000";
     signal sourceSel  : regInSelector_t := "00";
 
     signal wordRegIn  : dataWord_t      := "0000000000000000";
@@ -262,7 +258,7 @@ begin
         port map (
             OperandA,
             OperandB,
-            immed,
+            immed(7 downto 0),
             SREG,
 
             ENALU,
@@ -290,14 +286,14 @@ begin
 
             R,
             memIn,
-            immedIn,
+            immed(7 downto 0),
             sourceSel,
             wordRegIn,
             wordRegSel,
 
             BLD,
             sel,
-            TF,
+            SREG(6),
 
             regSelA,
             regSelB,
@@ -332,7 +328,6 @@ begin
             clkIdx,
             ENRes,
 
-            TF,
             SREG
         );
 
@@ -341,6 +336,7 @@ begin
             clock,
 
             IR,
+            SREG,
 
             BLD,
             BST,
@@ -372,8 +368,7 @@ begin
             decrement,
 
             SPWr,
-            
-            open,
+
             open
         );
 
@@ -404,7 +399,7 @@ end ALU_TESTBENCH;
 architecture testbench of ALU_TESTBENCH is
 
     -- Independent component that tests ALU
-    component TEST_ALU is
+    component ALU_TEST is
 
         port (
             IR        :  in  opcode_word;                       -- Instruction Register
@@ -433,7 +428,7 @@ architecture testbench of ALU_TESTBENCH is
 
 begin
 
-    ALU_UUT : TEST_ALU
+    ALU_UUT : ALU_TEST
         port map (IR, opA, opB, clock, result, status);
 
     DO_ALU_TEST: process

@@ -1,0 +1,26 @@
+On Mac OS X, Makefile targets are:
+analyze: compiles/analyzes everything using GHDL, including libraries
+memtest: compiles and runs memory test, saves waveform file, removes .o files
+alutest: same as memtest but for ALU
+regtest: same as memtest but for registers
+tidy: removes all compiled files except executable and waveform
+clean: removes all compiled files
+
+Testcases:
+Put instructions in testcases/XXX_instructions.txt.  All instructions must
+have two operands.  If <2 are required, they will be ignored.  When generated,
+the test vectors will be in XXX_vectors.txt to be read by VHD test files.
+There are Python files that will read the instructions and turn them into
+machine code and expected outputs.
+
+Libraries:
+There is an opcodes library which defines all of the opcodes.  There is also a
+common library which contains subtypes and constants used across multiple or all
+files and components.
+
+Components:
+nbit_*.vhd - Generic components not specific to AVR, where n is a generic
+    nbit_adder.vhd - n-bit full adder
+    nbit_fblock.vhd - n-bit AND and XOR
+    nbit_increment.vhd - increments n-bit value
+    nbit_shifter.vhd - shifts n-bit value right once

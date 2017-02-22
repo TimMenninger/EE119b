@@ -899,7 +899,7 @@ STDZ 0 60
 STDZ 0 61
 STDZ 1 62
 STDZ 1 63
-
+END
 LDDZ 1 0 -- First operand is destination, second is q (5 bits)
 LDDZ 2 1 -- We will try every possible q, with each register twice except Z
 LDDZ 3 2 -- From before, Z will have to wrap around.  Load in different order
