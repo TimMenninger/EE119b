@@ -2102,7 +2102,8 @@ begin
         -- that cause writes, and change the numClks counter max to 1 or 2 depending
         -- on the number of clocks we are skipping
         if (doSkip = '1') then
-            -- Instructions have one word unless twoWords is high
+            -- Instructions have one word unless twoWords is high.  We change numClks
+            -- so that we don't spend four clocks in instructions or anything
             if (twoWords = '1') then
                 numClks <= 1;
             else

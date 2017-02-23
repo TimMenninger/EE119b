@@ -44,10 +44,6 @@
 --          loaded into IP on rising edges of the clock if fetch is active.
 --      ProgAB : address_t
 --          Address to read in from ROM.  This is the instruction pointer.
---      ProgDB : address_t
---          Data output.  This is always relayed from ROM.  On times that ROM gives
---          a memory address (two-word instruction), it becomes up to the reader to
---          realize that this contains that and not the instruction anymore.
 --
 -- Revision History:
 --      20 Feb 17  Tim Menninger    Created
@@ -82,8 +78,7 @@ entity Instruction is
 
         instruction : out instruction_t;    -- Instruction to execute
         nextIP      : out address_t;        -- The next IP, usually incremented IP
-        ProgAB      : out address_t;        -- Address to read in ROM / IP
-        ProgDB      : out address_t         -- Data output
+        ProgAB      : out address_t         -- Address to read in ROM / IP
     );
 end Instruction;
 
@@ -131,10 +126,6 @@ begin
     -- We output ROMIn as instruction unless a control signal has told us to latch
     -- the instruction, in which case we read from the latch.
     instruction <= ROMIn when clkIdx = 0 else IR;
-
-    -- We always output the ROM value on the program data bus.  It is up to the
-    -- readers to decide if they want to use it
-    ProgDB <= ROMIn;
 
     -- Load the next IP address
     with IPSel   select nextIPReg <=

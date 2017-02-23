@@ -36,7 +36,7 @@ library common;
 use common.common.all;
 
 --
--- entity status
+-- entity stack
 --
 -- Defines the status register
 --
