@@ -21,6 +21,12 @@
 --          The global clock
 --      instruction : instruction_t
 --          The instruction from memory that is to be decoded.
+--      status : status_t
+--          Status register
+--      Rdb : std_logic
+--          The b'th bit of register regSelA.  This is used for conditional branching
+--      Eq : std_logic
+--          When '1', the values at register regSelA and regSelB are equal
 --
 -- Outputs:
 --      BLD : std_logic
@@ -118,6 +124,9 @@ entity ControlUnit is
         instruction : in  instruction_t;    -- instruction
         status      : in  status_t;         -- the flags
 
+        Rdb         : in  std_logic;        -- the b'th bit of register regSelA
+        Eq          : in  std_logic;        -- '1' when reg A = reg B
+
         BLD         : out std_logic;        -- '1' when BLD
         BST         : out std_logic;        -- '1' when BST
         CPC         : out std_logic;        -- '1' when CPC
@@ -170,10 +179,19 @@ end ControlUnit;
 architecture decoder of ControlUnit is
 
     -- How many clocks an instruction requires
-    signal numClks  : clockIndex_t  := 0;
+    signal numClks  : clockIndex_t      := 0;
 
     -- How many clocks since instruction began
-    signal clkCnt   : clockIndex_t  := 0;
+    signal clkCnt   : clockIndex_t      := 0;
+
+    -- The number of words in the instruction
+    signal twoWords : std_logic         := '0';
+
+    -- This tells us when we might be skipping
+    signal skip     : skipSelector_t    := "00";
+
+    -- When this is active, we skip an instruction
+    signal doSkip   : std_logic         := '0';
 
 begin
 
@@ -232,6 +250,7 @@ begin
         sourceSel<= "00";           -- Choose data from ALU
 
         numClks  <= 0;              -- Assume this is a 1-clock instruction
+        twoWords <= '0';            -- Assume this is a 1-word instruction
 
         fetch    <= '1';            -- Assume we are fetching instruction next clock
 
@@ -1265,6 +1284,11 @@ begin
             -- This is a 3-clock instruction
             numClks <= 2;
 
+            -- This has 2 words in the instruction
+            if (clkCnt = 0 or clkCnt = 1) then
+                twoWords <= '1';
+            end if;
+
             -- The register is implied by bits 4-8
             regSelA <= instruction(8 downto 4);
 
@@ -1585,6 +1609,11 @@ begin
             -- This is a 3-clock instruction
             numClks <= 2;
 
+            -- Two-word instruction
+            if (clkCnt = 0 or clkCnt = 1) then
+                twoWords <= '1';
+            end if;
+
             -- The register is implied by bits 4-8
             regSelA <= instruction(8 downto 4);
 
@@ -1680,11 +1709,17 @@ begin
         -----------------------------------------------------------------------------
 
         IPSel <= "000";     -- By default, just increment the instruction pointer
+        skip <= "00";       -- Not normally a potential for skipping
 
         -- Jump to address
         if (std_match(instruction, OpJMP))      then
             -- This is a 3-clock instruction
             numClks <= 2;
+
+            -- This is a two-word instruction
+            if (clkCnt = 0 or clkCnt = 1) then
+                twoWords <= '1';
+            end if;
 
             -- On first clock, we increment IP. Then, IP should get the second
             -- value read from ROM during this instruction
@@ -1747,6 +1782,11 @@ begin
 
             -- This is a 4-clock instruction
             numClks <= 3;
+
+            -- This is a two-word instruction
+            if (clkCnt = 0 or clkCnt = 1) then
+                twoWords <= '1';
+            end if;
 
             -- We only fetch on the first clock and the last one
             if (clkCnt = 1 or clkCnt = 2) then
@@ -2028,17 +2068,95 @@ begin
 
         -- Skip if arguments are equal
         if (std_match(instruction, OpCPSE))     then
+            -- We want to consider skipping
+            skip <= "01";
+
+            -- Values used by ALU
+            ENInvOp  <= '0';            -- Invert to add a negative
+            ENInvRes <= '0';            -- Add one to output to finish two's comp
+
+            -- Rd in bits 8-4, Rr in bits 9, 3-0
+            regSelA <= instruction(8 downto 4);
+            regSelB <= instruction(9) & instruction(3 downto 0);
         end if;
 
         -- Skip if bit clear
         if (std_match(instruction, OpSBRC))     then
+            -- We want to consider skipping
+            skip <= "10";
+
+            -- Bit select is in instruction
+            sel <= instruction(2 downto 0);
         end if;
 
         -- Skip if bit set
         if (std_match(instruction, OpSBRS))     then
+            -- We want to consider skipping
+            skip <= "11";
+
+            -- Bit select is in instruction
+            sel <= instruction(2 downto 0);
         end if;
 
+        -- Finally, if we are skipping, we want to "undo" any and all control signals
+        -- that cause writes, and change the numClks counter max to 1 or 2 depending
+        -- on the number of clocks we are skipping
+        if (doSkip = '1') then
+            -- Instructions have one word unless twoWords is high
+            if (twoWords = '1') then
+                numClks <= 1;
+            else
+                numClks <= 0;
+            end if;
+
+            -- We always fetch an incremented IP when we are skipping.
+            fetch    <= '1';    -- Always fetch incremented IP
+            IPSel <= "000";     -- By default, just increment the instruction pointer
+
+            -- Reset all control signals that, when set, cause a write
+            BLD      <= '0';            -- Not currently in BLD instruction
+            BST      <= '0';            -- Not currently in BST instruction
+            flagMask <= "11111111";     -- Change no flags
+
+            ENMul    <= '1';            -- Only MUL enables this
+            ENSwap   <= '1';            -- Only SWAP enables this
+            ENRegWr  <= '1';            -- Don't access registers by default
+
+            SPWr <= '1';                -- Don't overwrite stack pointer
+            addrSel <= "00";            -- Data doesn't access memory on 00
+
+        end if;
 
     end process decode;
+
+    --
+    -- Skip process
+    --
+    -- This process pays attention when the skip value indiciates that there might
+    -- be a skip.  It then looks for the appropriate signal from ALU or status.
+    -- On the rising edge, it will either put the system into a skip state appropriately
+    --
+    skipper: process (clk) is
+    begin
+        -- On the rising edge, move to skip state if applicable
+        if (rising_edge(clk)) then
+            case skip is
+                -- Check if we have a potential to skip and, if so, check if the
+                -- correct signal is in that causes us to skip
+                when "01" =>
+                    doSkip <= not Eq;       -- Eq is 0 when regA = regB
+                when "10" =>
+                    doSkip <= not Rdb;      -- Skip when the bit was 0
+                when "11" =>
+                    doSkip <= Rdb;          -- Skip when the bit was 1
+                when others =>
+                    if (doSkip = '1') then
+                        doSkip <= twoWords; -- Keep skipping if this is active
+                    else
+                        doSkip <= '0';      -- Or don't skip
+                    end if;
+            end case;
+        end if;
+    end process skipper;
 
 end architecture;

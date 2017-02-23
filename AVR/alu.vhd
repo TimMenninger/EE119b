@@ -123,7 +123,6 @@ end ALU;
 --      ANDI    0111KKKKddddKKKK    1       Rd = Rd AND K
 --      ASR     1001010ddddd0101    1       Rd arithmetic shift right
 --      BCLR    100101001sss1000    1       SREG(s) = 0
---      BLD     1111100ddddd0bbb    1       Rd(b) = T
 --      BSET    100101000sss1000    1       SREG(s) = 1
 --      BST     1111101dddddXbbb    1       T = Rd(b)
 --      COM     1001010ddddd0000    1       Rd = NOT Rd
@@ -144,7 +143,6 @@ end ALU;
 --      SBIW    10010111KKddKKKK    2       Rd+1|Rd = Rd+1|Rd - K
 --      SUB     000110rdddddrrrr    1       Rd = Rd - Rr
 --      SUBI    0101KKKKddddKKKK    1       Rd = Rd - K
---      SWAP    1001010ddddd0010    1       Swap nibbles of Rd
 --
 architecture compute of ALU is
 

@@ -104,6 +104,9 @@ architecture toplevel of MEM_TEST is
             instruction : in  address_t;        -- instruction
             status      : in  status_t;         -- the flags
 
+            Rdb         : in  std_logic;        -- the b'th bit of register regSelA
+            Eq          : in  std_logic;        -- '0' when reg A = reg B
+
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
 
@@ -260,6 +263,8 @@ begin
 
             IR,
             "00000000",
+            '0',
+            '0',
 
             BLD,
             BST,

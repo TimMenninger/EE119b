@@ -88,6 +88,7 @@ entity Status is
         clkIdx      : in  clockIndex_t;     -- clocks since instrctn
         ENRes       : in  std_logic;        -- set SREG to R
 
+        Eq          : out std_logic;        -- '0' when R = 0
         SREG        : out status_t          -- status register
     );
 end Status;
@@ -182,6 +183,7 @@ begin
             (R = "00000000" and clkIdx = 0) or
             (R = "00000000" and clkIdx = 1 and status(Z) = '1')
         else '0';
+    Eq <= ZF;
 
     -- Carry flag
     CF(0) <=

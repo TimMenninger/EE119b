@@ -135,6 +135,7 @@ architecture toplevel of REG_TEST is
             clkIdx      : in  clockIndex_t;     -- clks since instrctn
             ENRes       : in  std_logic;        -- set SREG to R
 
+            Eq          : out std_logic;        -- '0' when regA = regB
             SREG        : out status_t          -- status register
         );
     end component;
@@ -146,6 +147,9 @@ architecture toplevel of REG_TEST is
 
             instruction : in  instruction_t;    -- instruction
             status      : in  status_t;         -- the flags
+
+            Rdb         : in  std_logic;        -- the b'th bit of register regSelA
+            Eq          : in  std_logic;        -- '1' when reg A = reg B
 
             BLD         : out std_logic;        -- '1' when BLD
             BST         : out std_logic;        -- '1' when BST
@@ -254,6 +258,9 @@ begin
             IR,
             SREG,
 
+            Rdb,
+            '0',
+
             BLD,
             BST,
             CPC,
@@ -339,6 +346,7 @@ begin
             clkIdx,
             ENRes,
 
+            open,
             SREG
         );
 

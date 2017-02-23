@@ -1,4 +1,58 @@
-
+-----------------------------------------------------------------------------------------
+--
+-- isntruction.vhd
+--
+-- This contains logic that controls the instruction register.  It is responsible for
+-- updating the instruction pointer according to control signals and registering
+-- the instruction, which is particularly important on two-word instructions.  It
+-- has an incrementer that increments the IP, but any IP that is not simply incremented
+-- must be input to the component.  An incremented IP is always output, too, because
+-- other components in the system commonly need an incremented version (for example,
+-- when CALL pushes, it pushes the incremented IP); no need to increment it twice in
+-- parallel.
+--
+-- Inputs:
+--      clk : std_logic
+--          System clock
+--      clkIdx : clockIndex_t
+--          Num clocks since instruction start.  When clkIdx = 0 on the clock edge,
+--          the instruction is registered in case the next instruction is a memory
+--          address.
+--      fetch : std_logic
+--          When fetch is '1' on a rising clock edge, IP is overwritten with either
+--          itself incremented or an input address, depending on control signals.
+--      ROMIn : address_t
+--          Input read from ROM.  This is the instruction at address (IP)
+--      memIn : address_t
+--          Address from memory.  An address would come from here because we utilize
+--          the adder in data memory when possible.
+--      regIn : address_t
+--          The Z register from registers, used for indirect operations.
+--      IPSel : IPSelector_t
+--          Selects the source of the next IP address.  This can be the incremented IP,
+--          ROM, data memory, register or stack.
+--      memInByte : data_t
+--          A byte off of the stack.  When RET is called, we must restore the IP from
+--          the stack, which gives one byte at a time.
+--
+-- Outputs:
+--      instruction : instruction_t
+--          Instruction to execute.  This will either come from the instruction register
+--          or directly from ROM, depending on the clock.
+--      nextIP : address_t
+--          The next IP, usually incremented IP.  The value contained here will be
+--          loaded into IP on rising edges of the clock if fetch is active.
+--      ProgAB : address_t
+--          Address to read in from ROM.  This is the instruction pointer.
+--      ProgDB : address_t
+--          Data output.  This is always relayed from ROM.  On times that ROM gives
+--          a memory address (two-word instruction), it becomes up to the reader to
+--          realize that this contains that and not the instruction anymore.
+--
+-- Revision History:
+--      20 Feb 17  Tim Menninger    Created
+--
+-----------------------------------------------------------------------------------------
 
 -- bring in the necessary packages
 library ieee;

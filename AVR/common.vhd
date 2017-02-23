@@ -80,6 +80,9 @@ package common is
     -- Selects a bit in the flag
     subtype flagSelector_t  is std_logic_vector( 2 downto 0);
 
+    -- Selects what kind of skip, if any, we are doing
+    subtype skipSelector_t  is std_logic_vector( 1 downto 0);
+
     -------------------------------------------------------------------------------------
     --
     -- Constants
