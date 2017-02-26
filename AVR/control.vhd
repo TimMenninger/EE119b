@@ -19,8 +19,8 @@
 -- Inputs:
 --      clk : std_logic
 --          The global clock
---      instruction : instruction_t
---          The instruction from memory that is to be decoded.
+--      ProgDB : address_t
+--          The data from program memory
 --      status : status_t
 --          Status register
 --      Eq : std_logic
@@ -124,7 +124,7 @@ entity ControlUnit is
         clk         : in  std_logic;        -- system clock
         reset       : in  std_logic;        -- system reset
 
-        instruction : in  instruction_t;    -- instruction
+        ProgDB      : in  address_t;        -- instruction
         status      : in  status_t;         -- the flags
 
         Eq          : in  std_logic;        -- '1' when reg A = reg B
@@ -197,7 +197,12 @@ architecture decoder of ControlUnit is
     -- When this is active, we skip an instruction
     signal doSkip   : std_logic         := '0';
 
+    -- The instruction register
+    signal instruction : instruction_t  := "0000000000000000";
+
 begin
+    -- Set the isntruction register based on the program data bus
+    instruction <= ProgDB when clkCnt = 0 else instruction;
 
     --
     -- counter process

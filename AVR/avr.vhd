@@ -119,7 +119,6 @@ architecture testAVR of AVR_CPU is
             IPSel       : in  IPSelector_t;     -- Selects the source of the next IP
             memInByte   : in  data_t;           -- A byte off of the stack
 
-            instruction : out instruction_t;    -- Instruction to execute
             nextIP      : out address_t;        -- The next IP, usually incremented IP
             ProgAB      : out address_t         -- Address to read in ROM / IP
         );
@@ -136,7 +135,7 @@ architecture testAVR of AVR_CPU is
             clk         : in  std_logic;        -- system clock
             reset       : in  std_logic;        -- system reset
 
-            instruction : in  instruction_t;    -- instruction
+            ProgDB      : in  address_t;        -- instruction
             status      : in  status_t;         -- the flags
 
             Eq          : in  std_logic;        -- '1' when reg A = reg B
@@ -342,7 +341,6 @@ architecture testAVR of AVR_CPU is
 
     -- General signals
     signal clkIdx       : clockIndex_t      := 0; -- Num clocks since instruction
-    signal IR           : instruction_t     := "0000000000000000"; -- Instruction register
     signal immed        : immediate_t       := "000000000000"; -- Immediate value
     signal SREG         : status_t          := "00000000"; -- Status register
 
@@ -413,7 +411,6 @@ begin
         regWordOut,         --          Data word from registers (always Z here)
         IPSel,              --          Selects IP source
         DataDB,             -- INOUT    Data read off stack (from memory)
-        IR,                 --          Instruction register contents
         IPOut,              --          New IP address on next fetch
         ProgAB              -- OUT      Address bus to program memory
     );
@@ -421,7 +418,7 @@ begin
     ControlComponent        : ControlUnit   port map (
         clock,              -- IN       System clock
         Reset,              -- IN       System reset
-        IR,                 --          Instruction register contents
+        ProgDB,             --          Instruction register contents
         SREG,               --          Status register
         Eq,                 --          '0' when register outs are equal
         BLD,                --          '1' when BLD instruction occurring

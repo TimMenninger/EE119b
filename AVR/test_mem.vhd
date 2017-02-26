@@ -102,7 +102,7 @@ architecture toplevel of MEM_TEST is
             clk         : in  std_logic;        -- system clock
             reset       : in  std_logic;        -- system reset
 
-            instruction : in  address_t;        -- instruction
+            ProgDB      : in  address_t;        -- instruction
             status      : in  status_t;         -- the flags
 
             Eq          : in  std_logic;        -- '0' when reg A = reg B

@@ -77,7 +77,6 @@ entity Instruction is
         IPSel       : in  IPSelector_t;     -- Selects the source of the next IP
         memInByte   : in  data_t;           -- A byte off of the stack
 
-        instruction : out instruction_t;    -- Instruction to execute
         nextIP      : out address_t;        -- The next IP, usually incremented IP
         ProgAB      : out address_t         -- Address to read in ROM / IP
     );
@@ -120,10 +119,6 @@ begin
 
     -- Always output IP as the program address bus
     ProgAB <= IP;
-
-    -- We output ROMIn as instruction unless a control signal has told us to latch
-    -- the instruction, in which case we read from the latch.
-    instruction <= ROMIn when clkIdx = 0 else IR;
 
     -- Data uses incremented IP in adder, but when it is using it to push, we
     -- push in two bytes, so we swap the bytes
