@@ -57,23 +57,17 @@ end Stack;
 --
 architecture update of Stack is
 
-    -- The register containing the stack pointer
-    signal stackPointer : address_t := "1111111111111111";
-
 begin
-
-    -- Always output stack pointer
-    SP <= stackPointer;
 
     -- Update stack pointer on clock edges and reset
     process (clk, reset) is
     begin
         -- Reset stack pointer on reset
         if (reset = '0') then
-            stackPointer <= "1111111111111111";
+            SP <= "1111111111111111";
         -- Set it on rising edge of clock whe write signal received
         elsif (rising_edge(clk) and reset = '1' and ENWr = '0') then
-            stackPointer <= dataIn;
+            SP <= dataIn;
         end if;
     end process;
 

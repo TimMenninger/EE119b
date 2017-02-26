@@ -230,7 +230,6 @@ def generate(fIn, fOut, fVecs, template):
     labels = {}
 
     # The instructions
-    ROM = ["        \"0000000000000000\",\n"] * 500
     asm_lines = []
 
     # Parse for key addresses
@@ -260,13 +259,14 @@ def generate(fIn, fOut, fVecs, template):
     #####################################################################################
 
     # Copy the template file into the output vhd file until the start token
+    ROM = ["        X\"DEAD\",\n"] * numInstructions
     template_line = template.readline()
     while ("ROM_CODE_START" not in template_line):
         fOut.write(template_line)
         template_line = template.readline()
 
     # First line declares the constant
-    fOut.write("    type ROMtype is array(0 to %d) of address_t;\n" %(500))
+    fOut.write("    type ROMtype is array(0 to %d) of address_t;\n" %(numInstructions))
     fOut.write("    signal ROMbits : ROMtype :=  (\n")
 
     #####################################################################################
@@ -328,7 +328,7 @@ def generate(fIn, fOut, fVecs, template):
     # Put the opcodes in the VHD file
     for elem in ROM:
         fOut.write(elem)
-    fOut.write("        \"0000000000000000\"\n")
+    fOut.write("        X\"DEAD\" -- End of code in ROM\n")
 
     #####################################################################################
     # FINISH COPYING TEMPLATE
