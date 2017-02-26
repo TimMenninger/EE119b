@@ -10,8 +10,6 @@
 -- Inputs:
 --      clk : std_logic
 --          System clock
---      clkIdx : clockIndex_t
---          The number of clocks since the beginning of the instruction
 --      regAddr : address_t
 --          The address from the register unit, will be muxed
 --      SPAddr : address_t
@@ -34,6 +32,8 @@
 --          The data input to be written to memory if applicable.
 --      DataDB : data_t
 --          The data bus to memory.  Note that this is an INOUT and can be hi-Z
+--      useIP : std_logic
+--          When 1, we should use the IP address instead of dataIn
 --
 -- Outputs:
 --      addrOut: address_t
@@ -72,7 +72,6 @@ use common.common.all;
 entity MemoryUnit is
     port (
         clk         : in  std_logic;        -- system clock
-        clkIdx      : in  clockIndex_t;     -- number of clocks passed
 
         regAddr     : in  address_t;        -- address from registers
         SPAddr      : in  address_t;        -- address from stack ptr
@@ -85,6 +84,8 @@ entity MemoryUnit is
         RW          : in  std_logic;        -- read/not write
         addBefore   : in  std_logic;        -- when low, add offset before output
         dataIn      : in  data_t;           -- input data
+        useIP       : in  std_logic;        -- use IP for writing when '1'
+        EN          : in  std_logic;        -- active low enable
         addrOut     : out address_t;        -- address after inc/dec
 
         DataAB      : out address_t;        -- address to memory
@@ -133,7 +134,7 @@ begin
     -- We use the input select signal to choose which address input we should be
     -- using
     with addrSel    select address <=
-        SPAddr                  when "00", -- Used when pushing/popping IP
+        IPAddr                  when "00", -- Used when pushing/popping IP
         regAddr                 when "01",
         SPAddr                  when "10",
         ProgAddr                when others;
@@ -159,33 +160,12 @@ begin
 
     -- Set the data inout to high impedance or pass data through
     DataDB <=
-        IPAddr(7 downto 0)      when RW = '0' and addrSel = "00" else
-        dataIn                  when RW = '0' and addrSel /= "00" else
+        IPAddr(7 downto 0)      when RW = '0' and useIP = '1' else
+        dataIn                  when RW = '0'                 else
         "ZZZZZZZZ";
 
-    --
-    -- control process
-    --
-    -- This looks at the clock index and the control signals and decides when and how
-    -- to send control signals to memory.  When we are using an IR address, it is
-    -- a three-clock instruction so we go on clkIdx = 2.  Otherwise, clkIdx = 1.
-    -- Read and write signals only go active for half a clock cycle when it is
-    -- low.  When we are pushing or popping the instruction pointer, we will have
-    -- a third clock, during which we also access memory.
-    --
-    control : process (clk) is
-    begin
-        -- Default values
-        DataRd <= '1';
-        DataWr <= '1';
-
-        if (clk = '0') then
-            if ((clkIdx = 2 and (addrSel = "11")) or
-                (clkIdx = 1 and (addrSel = "10" or addrSel = "01"))) then
-                DataRd <= not RW;
-                DataWr <= RW;
-            end if;
-        end if;
-    end process;
+    -- Using the enable signal and the clock, we can set the read and write outputs
+    DataRd <= not RW when clk = '0' and EN = '0' else '1';
+    DataWr <=     RW when clk = '0' and EN = '0' else '1';
 
 end workflow;

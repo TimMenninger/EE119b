@@ -144,11 +144,11 @@ architecture toplevel of REG_TEST is
     component ControlUnit is
         port (
             clk         : in  std_logic;        -- system clock
+            reset       : in  std_logic;        -- system reset
 
             instruction : in  instruction_t;    -- instruction
             status      : in  status_t;         -- the flags
 
-            Rdb         : in  std_logic;        -- the b'th bit of register regSelA
             Eq          : in  std_logic;        -- '1' when reg A = reg B
 
             BLD         : out std_logic;        -- '1' when BLD
@@ -179,9 +179,11 @@ architecture toplevel of REG_TEST is
 
             -- Data memory control
             memRW       : out std_logic;        -- read/write to memory
+            memEN       : out std_logic;        -- active low enable to memory
             addrSel     : out addrSelector_t;   -- for address mux
             addBefore   : out std_logic;        -- dictates when to add to addr
             decrement   : out std_logic;        -- when low, decrementing
+            useIP       : out std_logic;        -- use IP for writing when '1'
 
             -- Stack pointer control
             SPWr        : out std_logic;        -- write to stack ptr
@@ -254,11 +256,11 @@ begin
     ControlUUT : ControlUnit
         port map (
             clock,
+            '1',
 
             IR,
             SREG,
 
-            Rdb,
             '0',
 
             BLD,
@@ -288,9 +290,11 @@ begin
             wordRegSel,
 
             memRW,
+            open,
             addrSel,
             addBefore,
             decrement,
+            open,
 
             SPWr,
 

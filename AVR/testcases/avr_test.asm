@@ -150,7 +150,7 @@ Start:                               ; start of the test code
                                      ;                       We show adding zero returns
                                      ;                       itself and we show a
                                      ;                       wrapped case
-        ADIW    R24, $0              ; 45  00  45  --------  Adding 0 gives itself
+        ADIW    R24, $00             ; 45  00  45  --------  Adding 0 gives itself
                                      ; 7D  XX  7D  11000000  High word
         ADIW    R26, $10             ; F0  10  00  --------  Wraparound case
                                      ; FF  XX  00  11000011  High word
@@ -322,7 +322,7 @@ Start:                               ; start of the test code
                                      ;                       word, Rd+1:Rd - K
         SBIW    R24, $10             ; 0D  10  FD  --------  Test wraparound case
                                      ; 00  XX  FF  11010101  High word
-        SBIW    R24, $0              ; FD  00  FD  --------  Anything minus 00 is itself
+        SBIW    R24, $00             ; FD  00  FD  --------  Anything minus 00 is itself
                                      ; FF  XX  FF  11010100  High word
 
         LDI     R30, $7F
@@ -340,7 +340,7 @@ Start:                               ; start of the test code
                                      ;                       and immediate
         SUBI    R20, $7F             ; 00  7F  81  11110101  Test wraparound
         SUBI    R30, $70             ; 50  70  E0  11010101  Test when A < B
-        SUBI    R31, $00             ; 71  00  D1  11000000  Test A - 0 = A
+        SUBI    R31, $00             ; 71  00  71  11000000  Test A - 0 = A
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test swap nibbles function,
@@ -360,9 +360,9 @@ Start:                               ; start of the test code
                                      ;                       registers now...
         PUSH    R29                  ;WAAFFFC
         PUSH    R30                  ;WE0FFFB
-        PUSH    R31                  ;WD1FFFA
+        PUSH    R31                  ;W71FFFA
                                      ; Pop everything
-        POP     R0                   ;RD1FFFA
+        POP     R0                   ;R71FFFA
         POP     R1                   ;RE0FFFB
         POP     R2                   ;RAAFFFC
         POP     R3                   ;R55FFFD
@@ -384,20 +384,19 @@ Start:                               ; start of the test code
                                      ;                       register (except 26+ because)
                                      ;                       they were demonstrated with
                                      ;                       PUSHes
-        STS      $5555, R0           ;WD15555                Test write R0, immediate
+        STS      $5555, R0           ;W715555                Test write R0, immediate
         STS      $AAAA, R1           ;WE0AAAA                Test write R1, immediate
 
                                      ;                       Test store data into address
                                      ;                       contained in X, Y and Z with
                                      ;                       pre-DEC and post-INC, showing
                                      ;                       wrapping.
-        ST       X, R2               ;W02FFFF                Test at X with no INC/DEC, R2
-        ST      -X, R3               ;W40FFFE                Test at X with pre-DEC, R3
-        ST      X+, R4               ;W01FFFE                Test at X with post-INC, R4
-        ST      X+, R5               ;W20FFFF                Show that post-INC wraps, R5
+        ST       X, R2               ;WAAFFFF                Test at X with no INC/DEC, R2
+        ST      -X, R3               ;W55FFFE                Test at X with pre-DEC, R3
+        ST      X+, R4               ;W00FFFE                Test at X with post-INC, R4
+        ST      X+, R5               ;W00FFFF                Show that post-INC wraps, R5
         ST       X, R6               ;W100000                Proof of wrap, R6
-        ST      -X, R4               ;W01FFFF                Show wrap pre-DEC wraps, R7
-        STD     X + 1, R4            ;W010000                Show store with displacement
+        ST      -X, R4               ;W00FFFF                Show wrap pre-DEC wraps, R7
         ST      Y+, R7               ;W04FFC0                Test post-INC with Y
         ST       Y, R8               ;WEFFFC1                Test write at (Y), R8
         ST      -Y, R9               ;W04FFC0                Test pre-DEC with Y, R9
@@ -440,46 +439,46 @@ Start:                               ; start of the test code
                                      ;                       well as displacement and with
                                      ;                       immediate addresses
         LDS     R6, $AAAA            ;RE0AAAA                Test read R6, immediate
-        LDS     R7, $5555            ;RD15555                Test read R7, immediate
+        LDS     R7, $5555            ;R715555                Test read R7, immediate
 
         LD      R8, X                ;R100000                Test read R8
-        LD      R9, -X               ;R20FFFF                Test read R9 with pre-DEC
-        LD      R10, X+              ;R20FFFF                Test read R10 with X post-INC
+        LD      R9, -X               ;R00FFFF                Test read R9 with pre-DEC
+        LD      R10, X+              ;R00FFFF                Test read R10 with X post-INC
         LD      R11, X               ;R100000                Test read R11 and wrapping
-        LD      R12, Y+              ;R20FFFF                Test read R12 with Y post-INC
+        LD      R12, Y+              ;R00FFFF                Test read R12 with Y post-INC
         LD      R13, Y               ;R100000                Test read R13, show wrapping
-        LD      R14, -Y              ;R20FFFF                Test read R14 with Y pre-DEC
+        LD      R14, -Y              ;R00FFFF                Test read R14 with Y pre-DEC
         LDD     R15, Y + 32          ;RFF001F                Test read R15 with Y displace
-        LD      R16, Z+              ;R04FFC0                Test read R16 with Z post-INC
-        LD      R17, Z               ;REFFFC1                Test read R17
-        LD      R18, -Z              ;R04FFC0                Test read R18 with Z pre-DEC
+        LD      R16, Z+              ;RE7FFC0                Test read R16 with Z post-INC
+        LD      R17, Z               ;RF7FFC1                Test read R17
+        LD      R18, -Z              ;RE7FFC0                Test read R18 with Z pre-DEC
         LDD     R19, Z + 60          ;R01FFFC                Test read R19 with Z displace
 
                                      ;                       Read from rest of registers
         PUSH    R8                   ;W10FFFF
-        PUSH    R9                   ;W20FFFE
-        PUSH    R10                  ;W20FFFD
+        PUSH    R9                   ;W00FFFE
+        PUSH    R10                  ;W00FFFD
         PUSH    R11                  ;W10FFFC
-        PUSH    R12                  ;W20FFFB
+        PUSH    R12                  ;W00FFFB
         PUSH    R13                  ;W10FFFA
-        PUSH    R14                  ;W20FFF9
+        PUSH    R14                  ;W00FFF9
         PUSH    R15                  ;WFFFFF8
-        PUSH    R16                  ;W04FFF7
-        PUSH    R17                  ;WEFFFF6
-        PUSH    R18                  ;W04FFF5
+        PUSH    R16                  ;WE7FFF7
+        PUSH    R17                  ;WF7FFF6
+        PUSH    R18                  ;WE7FFF5
         PUSH    R19                  ;W01FFF4
 
         POP     R20                  ;R01FFF4                Test read from R20
-        POP     R21                  ;R04FFF5                Test read from R21
-        POP     R22                  ;REFFFF6                Test read from R22
-        POP     R23                  ;R04FFF7                Test read from R23
+        POP     R21                  ;RE7FFF5                Test read from R21
+        POP     R22                  ;RF7FFF6                Test read from R22
+        POP     R23                  ;RE7FFF7                Test read from R23
         POP     R24                  ;RFFFFF8                Test read from R24
-        POP     R25                  ;R20FFF9                Test read from R25
+        POP     R25                  ;R00FFF9                Test read from R25
         POP     R26                  ;R10FFFA                Test read from R26
-        POP     R27                  ;R20FFFB                Test read from R27
+        POP     R27                  ;R00FFFB                Test read from R27
         POP     R28                  ;R10FFFC                Test read from R28
-        POP     R29                  ;R20FFFD                Test read from R29
-        POP     R30                  ;R20FFFE                Test read from R30
+        POP     R29                  ;R00FFFD                Test read from R29
+        POP     R30                  ;R00FFFE                Test read from R30
         POP     R31                  ;R10FFFF                Test read from R31
 
 
@@ -494,15 +493,15 @@ JumpTest:
         LDI     R27, 0               ;                       These should not execute if
         LDI     R28, 0               ;                       jump works
 TestRJump:
-        LDI     R30, LOW(IndirJump)  ; Load Z for indirect jump
-        LDI     R31, HIGH(IndirJump)
+        LDI     R30, LOW(TestIJump)  ; Load Z for indirect jump
+        LDI     R31, HIGH(TestIJump)
         IJMP
         LDI     R27, 0               ; These should not execute
         LDI     R28, 0
 TestIJump:
 
-
 TestCalls:                           ; Test subroutine calls
+        EOR     R0, R0
         CALL    Subr1                ;                       Direct subroutine call
         RCALL   Subr1                ;                       Relative direct call
         LDI     R30, LOW(Subr1)      ; Load Z for indirect call
@@ -511,6 +510,8 @@ TestCalls:                           ; Test subroutine calls
 
 
 TestBranches:                        ; test some conditional branches
+        LDI     R28, $7F
+        LDI     R27, $FF
         CP      R28, R27
         BRLO    Branch1              ;                       Should branch: $7F U< $FF
         JMP     TestBranches         ;                       Will infinitely loop if fails
@@ -573,22 +574,28 @@ Branch10:
         JMP     TestBranches         ;                       Will infinitely loop if fails
 Branch11:
         ADD     R30, R30             ;                       R30 is now $CC (no carry)
-        BRSH    Branch12              ;                       so should take the branch
+        BRSH    Branch12             ;                       so should take the branch
         JMP     TestBranches         ;                       Will infinitely loop if fails
 Branch12:
         ADD     R30, R30             ;                       should set the carry and half carry
-        BRSH    TestBranches         ;                       should not take branch
+        BRSH    Branch12             ;                       should not take branch
         BRHS    TestSkips            ;                       but should take this one
         JMP     TestBranches         ;                       Will infinitely loop if fails
 
-
 TestSkips:                           ;                       test skip instructions
+        MOV     R22, R23
         CPSE    R22, R23             ;                       skip a 1 byte instruction
         RJMP    TestSkips
         CPSE    R22, R23             ;                       skip a 2 byte instruction
         JMP     TestSkips
         CPSE    R22, R24             ;                       don't skip
         LDI     R22, $80
+        BCLR    6                    ;                       prepare for skip if bit set/clear
+        BCLR    3
+        BCLR    7
+        BSET    0
+        BSET    5
+        BCLR    1
         SBRC    R22, 6               ;                       should skip a 1 byte instruction
         LDI     R22, $FF
         SBRC    R22, 3               ;                       should skip a 2 byte instruction

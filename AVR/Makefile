@@ -13,6 +13,7 @@ analyze:
 	ghdl -a --ieee=synopsys -fexplicit $(shell find . ! -name "opcodes.vhd" ! -name "common.vhd" -name "*.vhd")
 
 avrtest:
+	python testcases/generate_AVR_vectors.py testcases/avr_test.asm systest.vhd testcases/AVR_vectors.txt testcases/systest_template.txt
 	make analyze
 	ghdl -e --ieee=synopsys -fexplicit $(AVR_TB_FILE)
 	make tidy

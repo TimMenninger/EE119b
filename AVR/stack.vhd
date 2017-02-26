@@ -71,10 +71,8 @@ begin
         -- Reset stack pointer on reset
         if (reset = '0') then
             stackPointer <= "1111111111111111";
-        end if;
-
         -- Set it on rising edge of clock whe write signal received
-        if (rising_edge(clk) and reset = '1' and ENWr = '0') then
+        elsif (rising_edge(clk) and reset = '1' and ENWr = '0') then
             stackPointer <= dataIn;
         end if;
     end process;

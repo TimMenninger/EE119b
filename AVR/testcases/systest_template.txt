@@ -1,0 +1,80 @@
+----------------------------------------------------------------------------
+--
+--  Atmel AVR Program Memory
+--
+--  This component describes a program for the AVR CPU.  It creates the
+--  program in a small (334 x 16) ROM.
+--
+--  Revision History:
+--     11 May 00  Glen George       Initial revision (from 5/9/00 version of
+--                                  progmem.vhd).
+--     28 Jul 00  Glen George       Added instructions and made memory return
+--                                  NOP when not mapped.
+--      7 Jun 02  Glen George       Updated commenting.
+--     16 May 04  Glen George       Added more instructions for testing and
+--                                  updated commenting.
+--     21 Jan 08  Glen George       Updated commenting.
+--
+----------------------------------------------------------------------------
+
+
+--
+--  PROG_MEMORY
+--
+--  This is the program memory component.  It is just a 334 word ROM with no
+--  timing information.  It is meant to be connected to the AVR CPU.  The ROM
+--  is always enabled and may be changed when Reset it active.
+--
+--  Inputs:
+--    ProgAB - address bus (16 bits)
+--    Reset  - system reset (active low)
+--
+--  Outputs:
+--    ProgDB - program memory data bus (16 bits)
+--
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+library common;
+use common.common.all;
+
+
+entity PROG_MEMORY is
+    port (
+        ProgAB  :  in   std_logic_vector(15 downto 0);  -- program address bus
+        Reset   :  in   std_logic;                      -- system reset
+        ProgDB  :  out  std_logic_vector(15 downto 0)   -- program data bus
+    );
+end PROG_MEMORY;
+
+
+architecture ROM of PROG_MEMORY is
+
+    -- define the actual ROM (initialized to a simple program).  This is auto
+    -- generated after the line containing the start token, then continues afterward.
+
+    -- ROM_CODE_START
+
+begin
+
+    -- the address has changed - read the new value
+    ProgDB <= ROMbits(CONV_INTEGER(ProgAB)) when (CONV_INTEGER(ProgAB) <= ROMbits'high)  else
+              X"DEAD";
+
+
+    -- process to handle Reset
+    process(Reset)
+    begin
+
+        -- check if Reset is low now
+        if  (Reset = '0')  then
+            -- reset is active - initialize the ROM (nothing for now)
+        end if;
+
+    end process;
+
+end  ROM;

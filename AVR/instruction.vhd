@@ -66,6 +66,7 @@ use common.common.all;
 entity Instruction is
     port (
         clk         : in  std_logic;        -- System clock
+        reset       : in  std_logic;        -- System reset
         clkIdx      : in  clockIndex_t;     -- Num clocks since instruction start
 
         fetch       : in  std_logic;        -- Get new instruction on rising edges
@@ -107,13 +108,10 @@ architecture dataflow of Instruction is
     -- The instruction register
     signal IR       : instruction_t := "0000000000000000";
 
-    -- This contains the next value of the instruction pointer.  It will usually
-    -- be the incremented value, but may sometimes be set from a JMP CALL or RET
-    signal nextIPReg: address_t     := "0000000000000000";
-
     -- When the IP comes from the stack (any RET call), it comes in bytes, so we
     -- register the low byte
-    signal memInReg : data_t        := "00000000";
+    signal memInLow  : data_t       := "00000000";
+    signal memInHigh : data_t       := "00000000";
 
 begin
 
@@ -127,37 +125,48 @@ begin
     -- the instruction, in which case we read from the latch.
     instruction <= ROMIn when clkIdx = 0 else IR;
 
-    -- Load the next IP address
-    with IPSel   select nextIPReg <=
-        IPInc                when "000",
-        IPInc( 7 downto 0) &
-        IPInc(15 downto 8)   when "100",
-        ROMIn                when "001",
-        memIn                when "010",
-        regIn                when "011",
-        memInByte & memInReg when others;
+    -- Data uses incremented IP in adder, but when it is using it to push, we
+    -- push in two bytes, so we swap the bytes
+    nextIP <= "00000000" & IPInc(15 downto 8) when IPSel = "100" else IPInc;
 
     -- This process handles the instruction regiser and program counter/instruction
     -- pointer.
-    fetchInst: process (clk) is
+    fetchInst: process (clk, reset) is
     begin
+        -- On reset, instruction pointer should go to 0, or start
+        if (reset = '0') then
+            IP <= "0000000000000000";
         -- Fetch the next instruction by loading the incremented (or explicit) IP into IP
-        if (rising_edge(clk)) then
+        elsif (rising_edge(clk)) then
             -- If fetching, load the next IP into the instruction pointer
             if (fetch = '1') then
                 -- Update the instruction pointer
-                IP <= nextIPReg;
-            end if;
-
-            if (clkIdx = 0) then
-                -- The first clock of an instruction always has the instruction; latch it
-                IR <= ROMIn;
+                case IPSel is
+                    when "000" =>
+                        IP <= IPInc;
+                    when "001" =>
+                        IP <= ROMIn;
+                    when "010" =>
+                        IP <= memIn;
+                    when "011" =>
+                        IP <= regIn;
+                    when "110" =>
+                        IP <= memInHigh & memInLow;
+                    when others =>
+                        IP <= IP;
+                end case;
             end if;
 
             if (clkIdx = 1) then
-                -- If this happens to be a RET call, we will latch the byte from stack
+                -- If this happens to be a RET call, we will latch low byte from stack
                 -- on second clk.  Otherwise, this will ge ignored so do it anyway.
-                memInReg <= memInByte;
+                memInLow <= memInByte;
+            end if;
+
+            if (clkIdx = 2) then
+                -- If this happens to be a RET call, we will latch the high byte from
+                -- stack on third clk.  Otherwise, this will ge ignored so do it anyway.
+                memInHigh <= memInByte;
             end if;
 
         end if;

@@ -54,7 +54,7 @@ begin
             '0';
 
     -- We stop incrementing when we are no long enabled or this bit was a 0
-    doNext <= '1' when EN = '0' and aIn = '1' else '0';
+    doNext <= '1' when EN = '1' and aIn = '1' else '0';
 end architecture;
 
 -- bring in the necessary packages

@@ -148,11 +148,11 @@ architecture toplevel of ALU_TEST is
     component ControlUnit is
         port (
             clk         : in  std_logic;        -- system clk
+            reset       : in  std_logic;        -- system reset
 
             instruction : in  instruction_t;    -- instruction
             status      : in  status_t;         -- the flags
 
-            Rdb         : in  std_logic;        -- the b'th bit of register regSelA
             Eq          : in  std_logic;        -- '0' when reg A = reg B
 
             BLD         : out std_logic;        -- '1' when BLD
@@ -181,9 +181,11 @@ architecture toplevel of ALU_TEST is
 
             -- Data memory control
             memRW       : out std_logic;        -- read/write to memory
+            memEN       : out std_logic;        -- active low enable to memory
             addrSel     : out addrSelector_t;   -- for address mux
             addBefore   : out std_logic;        -- dictates when to add to addr
             decrement   : out std_logic;        -- when low, decrementing
+            useIP       : out std_logic;        -- use IP for writing when '1'
 
             -- Stack pointer control
             SPWr        : out std_logic;        -- write to stack ptr
@@ -243,6 +245,7 @@ architecture toplevel of ALU_TEST is
 
     -- Data memory control
     signal memRW    : std_logic         := '0';
+    signal memEN    : std_logic         := '0';
     signal addrSel  : addrSelector_t    := "00";
     signal addBefore: std_logic         := '0';
     signal decrement: std_logic         := '0';
@@ -339,11 +342,11 @@ begin
     ControlUUT : ControlUnit
         port map (
             clock,
+            '1',
 
             IR,
             SREG,
 
-            Rdb,
             '0',
 
             BLD,
@@ -371,9 +374,11 @@ begin
             ENRegWr,
 
             memRW,
+            memEN,
             addrSel,
             addBefore,
             decrement,
+            open,
 
             SPWr,
 

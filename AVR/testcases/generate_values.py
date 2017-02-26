@@ -1,5 +1,6 @@
 import sys
 
+I = 0
 T = 1
 H = 2
 S = 3
@@ -9,63 +10,76 @@ Z = 6
 C = 7
 
 instructions = {
-    "ADC"   :  ("000111rdddddrrrr", 1), # Rd = Rd + Rr + C
-    "ADD"   :  ("000011rdddddrrrr", 1), # Rd = Rd + Rr
-    "ADIW"  :  ("10010110KKddKKKK", 2), # Rd+1|Rd = Rd+1|Rd + K
-    "AND"   :  ("001000rdddddrrrr", 1), # Rd = Rd AND Rr
-    "ANDI"  :  ("0111KKKKddddKKKK", 1), # Rd = Rd AND K
-    "ASR"   :  ("1001010ddddd0101", 1), # Rd arithmetic shift right
-    "BCLR"  :  ("100101001sss1000", 1), # SREG(s) = 0
-    "BLD"   :  ("1111100ddddd0bbb", 1), # Rd(b) = T
-    "BSET"  :  ("100101000sss1000", 1), # SREG(s) = 1
-    "BST"   :  ("1111101ddddd0bbb", 1), # T = Rd(b)
-    "COM"   :  ("1001010ddddd0000", 1), # Rd = NOT Rd
-    "CP"    :  ("000101rdddddrrrr", 1), # Rd - Rr
-    "CPC"   :  ("000001rdddddrrrr", 1), # Rd - Rr - C
-    "CPI"   :  ("0011KKKKddddKKKK", 1), # Rd - K
-    "DEC"   :  ("1001010ddddd1010", 1), # Rd = Rd - 1
-    "EOR"   :  ("001001rdddddrrrr", 1), # Rd = Rd XOR Rr
-    "INC"   :  ("1001010ddddd0011", 1), # Rd = Rd + 1
-    "LSR"   :  ("1001010ddddd0110", 1), # Rd = logical shift right
-    "MUL"   :  ("100111rdddddrrrr", 2), # R1|R0 = Rd * Rr
-    "NEG"   :  ("1001010ddddd0001", 1), # Rd = -1 * Rd
-    "OR"    :  ("001010rdddddrrrr", 1), # Rd = Rd OR Rr
-    "ORI"   :  ("0110KKKKddddKKKK", 1), # Rd = Rd OR K
-    "ROR"   :  ("1001010ddddd0111", 1), # Rd = rotate right
-    "SBC"   :  ("000010rdddddrrrr", 1), # Rd = Rd - Rr - C
-    "SBCI"  :  ("0100KKKKddddKKKK", 1), # Rd = Rd - K - C
-    "SBIW"  :  ("10010111KKddKKKK", 2), # Rd+1|Rd = Rd+1|Rd - K
-    "SUB"   :  ("000110rdddddrrrr", 1), # Rd = Rd - Rr
-    "SUBI"  :  ("0101KKKKddddKKKK", 1), # Rd = Rd - K
-    "SWAP"  :  ("1001010ddddd0010", 1), # Swap nibbles of Rd
-    "LDX"   :  ("1001000ddddd1100", 2), # LD Rd, X
-    "LDXI"  :  ("1001000ddddd1101", 2), # LD Rd, X+
-    "LDXD"  :  ("1001000ddddd1110", 2), # LD Rd, -X
-    "LDY"   :  ("1000000ddddd1000", 2), # LD Rd, Y
-    "LDYI"  :  ("1001000ddddd1001", 2), # LD Rd, Y+
-    "LDYD"  :  ("1001000ddddd1010", 2), # LD Rd, -Y
-    "LDZ"   :  ("1000000ddddd0000", 2), # LD Rd, Z
-    "LDZI"  :  ("1001000ddddd0001", 2), # LD Rd, Z+
-    "LDZD"  :  ("1001000ddddd0010", 2), # LD Rd, -Z
-    "LDDY"  :  ("10q0qq0ddddd1qqq", 2), # LDD Rd, Y + q
-    "LDDZ"  :  ("10q0qq0ddddd0qqq", 2), # LDD Rd, Z + q
-    "LDI"   :  ("1110kkkkddddkkkk", 1), # LDI Rd, k
-    "LDS"   :  ("1001000ddddd0000", 3), # LDS Rd, m
-    "MOV"   :  ("001011rdddddrrrr", 1), # MOV Rd, Rr
-    "STX"   :  ("1001001rrrrr1100", 2), # ST X, Rr
-    "STXI"  :  ("1001001rrrrr1101", 2), # ST X+, Rr
-    "STXD"  :  ("1001001rrrrr1110", 2), # ST -X, Rr
-    "STY"   :  ("1000001rrrrr1000", 2), # ST Y, Rr
-    "STYI"  :  ("1001001rrrrr1001", 2), # ST Y+, Rr
-    "STYD"  :  ("1001001rrrrr1010", 2), # ST -Y, Rr
-    "STZ"   :  ("1000001rrrrr0000", 2), # ST Z, Rr
-    "STZI"  :  ("1001001rrrrr0001", 2), # ST Z+, Rr
-    "STZD"  :  ("1001001rrrrr0010", 2), # ST -Z, Rr
-    "STDY"  :  ("10q0qq1rrrrr1qqq", 2), # STD Y + q, Rr
-    "STDZ"  :  ("10q0qq1rrrrr0qqq", 2), # STD Z + q, Rr
-    "STS"   :  ("1001001rrrrr0000", 3), # STS m, Rr
-    "POP"   :  ("1001000ddddd1111", 2), # POP Rd
-    "PUSH"  :  ("1001001rrrrr1111", 2)  # PUSH Rd
+    "ADC"   :  ("000111rdddddrrrr", 1, 1), # Rd = Rd + Rr + C
+    "ADD"   :  ("000011rdddddrrrr", 1, 1), # Rd = Rd + Rr
+    "ADIW"  :  ("10010110KKddKKKK", 2, 1), # Rd+1|Rd = Rd+1|Rd + K
+    "AND"   :  ("001000rdddddrrrr", 1, 1), # Rd = Rd AND Rr
+    "ANDI"  :  ("0111KKKKddddKKKK", 1, 1), # Rd = Rd AND K
+    "ASR"   :  ("1001010ddddd0101", 1, 1), # Rd arithmetic shift right
+    "BCLR"  :  ("100101001sss1000", 1, 1), # SREG(s) = 0
+    "BLD"   :  ("1111100ddddd0bbb", 1, 1), # Rd(b) = T
+    "BSET"  :  ("100101000sss1000", 1, 1), # SREG(s) = 1
+    "BST"   :  ("1111101ddddd0bbb", 1, 1), # T = Rd(b)
+    "COM"   :  ("1001010ddddd0000", 1, 1), # Rd = NOT Rd
+    "CP"    :  ("000101rdddddrrrr", 1, 1), # Rd - Rr
+    "CPC"   :  ("000001rdddddrrrr", 1, 1), # Rd - Rr - C
+    "CPI"   :  ("0011KKKKddddKKKK", 1, 1), # Rd - K
+    "DEC"   :  ("1001010ddddd1010", 1, 1), # Rd = Rd - 1
+    "EOR"   :  ("001001rdddddrrrr", 1, 1), # Rd = Rd XOR Rr
+    "INC"   :  ("1001010ddddd0011", 1, 1), # Rd = Rd + 1
+    "LSR"   :  ("1001010ddddd0110", 1, 1), # Rd = logical shift right
+    "MUL"   :  ("100111rdddddrrrr", 2, 1), # R1|R0 = Rd * Rr
+    "NEG"   :  ("1001010ddddd0001", 1, 1), # Rd = -1 * Rd
+    "OR"    :  ("001010rdddddrrrr", 1, 1), # Rd = Rd OR Rr
+    "ORI"   :  ("0110KKKKddddKKKK", 1, 1), # Rd = Rd OR K
+    "ROR"   :  ("1001010ddddd0111", 1, 1), # Rd = rotate right
+    "SBC"   :  ("000010rdddddrrrr", 1, 1), # Rd = Rd - Rr - C
+    "SBCI"  :  ("0100KKKKddddKKKK", 1, 1), # Rd = Rd - K - C
+    "SBIW"  :  ("10010111KKddKKKK", 2, 1), # Rd+1|Rd = Rd+1|Rd - K
+    "SUB"   :  ("000110rdddddrrrr", 1, 1), # Rd = Rd - Rr
+    "SUBI"  :  ("0101KKKKddddKKKK", 1, 1), # Rd = Rd - K
+    "SWAP"  :  ("1001010ddddd0010", 1, 1), # Swap nibbles of Rd
+    "LDX"   :  ("1001000ddddd1100", 2, 1), # LD Rd, X
+    "LDXI"  :  ("1001000ddddd1101", 2, 1), # LD Rd, X+
+    "LDXD"  :  ("1001000ddddd1110", 2, 1), # LD Rd, -X
+    "LDY"   :  ("1000000ddddd1000", 2, 1), # LD Rd, Y
+    "LDYI"  :  ("1001000ddddd1001", 2, 1), # LD Rd, Y+
+    "LDYD"  :  ("1001000ddddd1010", 2, 1), # LD Rd, -Y
+    "LDZ"   :  ("1000000ddddd0000", 2, 1), # LD Rd, Z
+    "LDZI"  :  ("1001000ddddd0001", 2, 1), # LD Rd, Z+
+    "LDZD"  :  ("1001000ddddd0010", 2, 1), # LD Rd, -Z
+    "LDDY"  :  ("10q0qq0ddddd1qqq", 2, 1), # LDD Rd, Y + q
+    "LDDZ"  :  ("10q0qq0ddddd0qqq", 2, 1), # LDD Rd, Z + q
+    "LDI"   :  ("1110kkkkddddkkkk", 1, 1), # LDI Rd, k
+    "LDS"   :  ("1001000ddddd0000", 3, 2), # LDS Rd, m
+    "MOV"   :  ("001011rdddddrrrr", 1, 1), # MOV Rd, Rr
+    "STX"   :  ("1001001rrrrr1100", 2, 1), # ST X, Rr
+    "STXI"  :  ("1001001rrrrr1101", 2, 1), # ST X+, Rr
+    "STXD"  :  ("1001001rrrrr1110", 2, 1), # ST -X, Rr
+    "STY"   :  ("1000001rrrrr1000", 2, 1), # ST Y, Rr
+    "STYI"  :  ("1001001rrrrr1001", 2, 1), # ST Y+, Rr
+    "STYD"  :  ("1001001rrrrr1010", 2, 1), # ST -Y, Rr
+    "STZ"   :  ("1000001rrrrr0000", 2, 1), # ST Z, Rr
+    "STZI"  :  ("1001001rrrrr0001", 2, 1), # ST Z+, Rr
+    "STZD"  :  ("1001001rrrrr0010", 2, 1), # ST -Z, Rr
+    "STDY"  :  ("10q0qq1rrrrr1qqq", 2, 1), # STD Y + q, Rr
+    "STDZ"  :  ("10q0qq1rrrrr0qqq", 2, 1), # STD Z + q, Rr
+    "STS"   :  ("1001001rrrrr0000", 3, 2), # STS m, Rr
+    "POP"   :  ("1001000ddddd1111", 2, 1), # POP Rd
+    "PUSH"  :  ("1001001rrrrr1111", 2, 1), # PUSH Rd
+    "JMP"   :  ("1001010000001100", 3, 2), # JMP a
+    "RJMP"  :  ("1100jjjjjjjjjjjj", 2, 1), # RJMP j
+    "IJMP"  :  ("1001010000001001", 2, 1), # IJMP
+    "CALL"  :  ("1001010000001110", 4, 2), # CALL a
+    "RCALL" :  ("1101jjjjjjjjjjjj", 3, 1), # RCALL j
+    "ICALL" :  ("1001010100001001", 3, 1), # ICALL
+    "RET"   :  ("1001010100001000", 4, 1), # RET
+    "RETI"  :  ("1001010100011000", 4, 1), # RETI
+    "BRBC"  :  ("111101tttttttccc", 1, 1), # BRBC c, t (t signed)
+    "BRBS"  :  ("111100tttttttccc", 1, 1), # BRBS c, t (t signed)
+    "CPSE"  :  ("000100rdddddrrrr", 1, 1), # CPSE Rd, Rr
+    "SBRC"  :  ("1111110rrrrr0fff", 1, 1), # SBRC Rr, f
+    "SBRS"  :  ("1111111rrrrr0fff", 1, 1)  # SBRS Rr, f
 }
 
 # Binary string to integer
@@ -122,6 +136,7 @@ def compute_result(instruction, opA, opB, status):
     Rr7 = bool(int_to_binary(opB, 8)[0])
 
     # Perform operation
+    R = int_to_binary(0, 8)
     if (instruction == "ADC"):
         R = int_to_binary(opA + opB + int(status[C]), 8)
         status[H] = (Rd3 and Rr3) or (Rr3 and not R[4]) or (not R[4] and Rd3)
@@ -338,27 +353,30 @@ def compute_instruction(instruction, opA, opB):
 
     # If the instruction has a source register and no destination, then we should
     # have opB contain the input that is in opA
-    if ('r' in opcode and ('d' not in opcode and 'q' not in opcode)):
+    if ('r' in opcode and ('d' not in opcode and 'q' not in opcode) and
+        instruction != "STS" and 'f' not in opcode):
         opB = opA
 
     # Get operand A if it exists
     opAList = []
     if (opA != None):
-        opAList = int_to_binary(opA, 8)
+        opAList = int_to_binary(opA, 12)
     idxA = len(opAList) - 1
     if (instruction in [ "ADIW", "SBIW" ]):
         idxA -= 1
 
     # Get operand B if it exists
     opBList = []
-    if (opB != None):
-        opBList = int_to_binary(opB, 8)
+    if (opB != None and 't' in opcode):
+        opBList = int_to_binary(opB, 7)
+    elif (opB != None):
+        opBList = int_to_binary(opB, 12)
     idxB = len(opBList) - 1
 
     # Fill bits in skeleton
-    opAChars = ['d', 's']
-    opBChars = ['b', 'K', 'k', 'q']
-    if ('q' in opcode):
+    opAChars = ['d', 's', 'j', 'c']
+    opBChars = ['b', 'K', 'k', 'q', 't', 'f']
+    if ('q' in opcode or 'f' in opcode):
         opAChars.append('r')
     else:
         opBChars.append('r')
