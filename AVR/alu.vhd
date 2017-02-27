@@ -232,11 +232,11 @@ architecture compute of ALU is
 begin
 
     -- These signals always go to status and don't depend on control signals
-    Rd0 <= opA(0);                    -- bit 0 of operand A
-    Rd3 <= opA(3);                    -- bit 3 of operand A
-    Rr3 <= opB(3);                    -- bit 3 of operand B
-    Rd7 <= opA(7);                    -- bit 7 of operand A
-    Rr7 <= opB(7);                    -- bit 7 of operand B
+    Rd0 <= opA(0);                                  -- bit 0 of operand A
+    Rd3 <= opA(3);                                  -- bit 3 of operand A
+    Rr3 <= opB(3) when ENImmed = '1' else immed(3); -- bit 3 of operand B
+    Rd7 <= opA(7);                                  -- bit 7 of operand A
+    Rr7 <= opB(7) when ENImmed = '1' else immed(7); -- bit 7 of operand B
 
     -------------------------------------------------------------------------------------
     --

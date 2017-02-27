@@ -59,7 +59,7 @@ EOR 24 24 -- Put 0 into registers 24 and 26
 EOR 26 26
 ADIW 24 28 -- put 28 into reg 24
 ADIW 26 10 -- put 10 into reg 26
-
+END
 ADC 2 0 -- test adc. carry is clear here
 BSET 0 0 -- set carry for next adc test
 ADC 3 1 -- test adc with carry bit set
@@ -245,6 +245,7 @@ SBCI 18 100 -- arbitrary case
 EOR 26 26 -- clear registers 26 28 and 30 for SBIW
 EOR 28 28
 EOR 30 30
+
 ADIW 30 23 -- arbitrary value into reg 30
 SBIW 26 0 -- 0 - 0
 SBIW 26 1 -- 0 - 1, sets reg 1 and reg 0 to $ff

@@ -13,6 +13,12 @@ the test vectors will be in XXX_vectors.txt to be read by VHD test files.
 There are Python files that will read the instructions and turn them into
 machine code and expected outputs.
 
+The exception to this is the AVR tests, which read from the AVR .asm file.  Only
+instructions that have an implementation will be recognized.  The AVR test file
+superficially tests that the arithmetic operations work, but mainly checks that
+skipping and flow control work.  To test the instructions themselves, there are
+test_alu, test_mem and test_regs.
+
 Libraries:
 There is an opcodes library which defines all of the opcodes.  There is also a
 common library which contains subtypes and constants used across multiple or all

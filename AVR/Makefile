@@ -16,13 +16,8 @@ analyze:
 	ghdl -a --ieee=synopsys -fexplicit --work=opcodes opcodes.vhd
 	ghdl -a --ieee=synopsys -fexplicit $(shell find . ! -name "opcodes.vhd" ! -name "common.vhd" -name "*.vhd")
 
-testcases:
-	python testcases/generate_AVR_vectors.py testcases/avr_test.asm systest.vhd testcases/AVR_vectors.txt testcases/systest_template.txt
-	python testcases/generate_MEM_vectors.py testcases/MEM_instructions.txt testcases/MEM_vectors.txt
-	python testcases/generate_ALU_vectors.py testcases/ALU_instructions.txt testcases/ALU_vectors.txt
-	python testcases/generate_REG_vectors.py testcases/REG_instructions.txt testcases/REG_vectors.txt
-
 avrtest:
+	python testcases/generate_AVR_vectors.py testcases/avr_test.asm systest.vhd testcases/AVR_vectors.txt testcases/systest_template.txt
 	make analyze
 	ghdl -e --ieee=synopsys -fexplicit $(AVR_TB_FILE)
 	make tidy
@@ -30,6 +25,7 @@ avrtest:
 	python ../fix_vcd.py $(AVR_TB_FILE).vcd
 
 memtest:
+	python testcases/generate_MEM_vectors.py testcases/MEM_instructions.txt testcases/MEM_vectors.txt
 	make analyze
 	ghdl -e --ieee=synopsys -fexplicit $(MEM_TB_FILE)
 	make tidy
@@ -37,6 +33,7 @@ memtest:
 	python ../fix_vcd.py $(MEM_TB_FILE).vcd
 
 alutest:
+	python testcases/generate_ALU_vectors.py testcases/ALU_instructions.txt testcases/ALU_vectors.txt
 	make analyze
 	ghdl -e --ieee=synopsys -fexplicit $(ALU_TB_FILE)
 	make tidy
@@ -44,6 +41,7 @@ alutest:
 	python ../fix_vcd.py $(ALU_TB_FILE).vcd
 
 regtest:
+	python testcases/generate_REG_vectors.py testcases/REG_instructions.txt testcases/REG_vectors.txt
 	make analyze
 	ghdl -e --ieee=synopsys -fexplicit $(REG_TB_FILE)
 	make tidy

@@ -1,4 +1,7 @@
-; This is the testcode for the Atmel AVR emulator.
+; This is the testcode for the Atmel AVR emulator.  There exist tests for functionality
+; in ALU, registers and data memory.  This mainly serves to show that flow control
+; and the instruction register work, although errors in the former three may cause
+; tests generated from this file to fail.
 ;
 ;
 ; Revision History
@@ -21,6 +24,8 @@
 ;                                   -Added dummy instructions to show jumps and branches
 ;                                    work
 ;                                   -Added more branch tests
+;     2/26/17  Tim Menninger    Added PUSHes for arithmetic operations, but not a ton
+;                               because that's what the ALU test is for
 
 
 
@@ -132,18 +137,35 @@ Start:                               ; start of the test code
                                      ;                       Test the add with carry
                                      ;                       functionality
         ADC     R16, R17             ; FF  FF  FF  11110101  Testing with all 1's
+        PUSH    R16                  ;WFFFFFF
+        POP     R16                  ;RFFFFFF
         ADC     R16, R18             ; FF  00  00  11100011  Show (FF + carry) = 0
+        PUSH    R16                  ;W00FFFF
+        POP     R16                  ;R00FFFF
         ADC     R18, R17             ; 00  FF  00  11100011  Show (FF + carry) = 0
+        PUSH    R18                  ;W00FFFF
+        POP     R18                  ;R00FFFF
         ADC     R25, R21             ; 80  7E  FF  11010100  Show sum without rollover
+        PUSH    R25                  ;WFFFFFF
+        POP     R25                  ;RFFFFFF
         ADC     R22, R0              ; 7E  80  FE  11010100  Show sum with carry = 0
+        PUSH    R22                  ;WFEFFFF
+        POP     R22                  ;RFEFFFF
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test add without carry
         ADD     R25, R21             ; FF  7E  7D  11100001  Wraparound should set carry
+        PUSH    R25                  ;W7DFFFF
+        POP     R25                  ;R7DFFFF
         ADD     R16, R17             ; 00  FF  FF  11010100  Add zero should give itself
+        PUSH    R16                  ;WFFFFFF
+        POP     R16                  ;RFFFFFF
         ADD     R18, R20             ; 00  00  00  11000010  Show 0 + 0 is 0
+        PUSH    R18                  ;W00FFFF
+        POP     R18                  ;R00FFFF
         ADD     R23, R0              ; 80  80  00  11011011  Show that we get wrap around
-                                     ;                          to 0 with 0x80+0x80 = 0
+        PUSH    R23                  ;W00FFFF                to 0 with 0x80+0x80 = 0
+        POP     R23                  ;R00FFFF
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test add immediate to word.
@@ -152,40 +174,77 @@ Start:                               ; start of the test code
                                      ;                       wrapped case
         ADIW    R24, $00             ; 45  00  45  --------  Adding 0 gives itself
                                      ; 7D  XX  7D  11000000  High word
+        PUSH    R24                  ;W45FFFF
+        PUSH    R25                  ;W7DFFFE
+        POP     R25
+        POP     R24
         ADIW    R26, $10             ; F0  10  00  --------  Wraparound case
                                      ; FF  XX  00  11000011  High word
+        PUSH    R26                  ;W00FFFF
+        PUSH    R27                  ;W00FFFE
+        POP     R27
+        POP     R26
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test AND functionality
                                      ;                       between two registers
         AND     R17, R28             ; FF  55  55  11000001  FF AND anything is itself
         AND     R17, R29             ; 55  AA  00  11000011  No overlap bits gives 0
+        PUSH    R17                  ;W00FFFF
+        POP     R17
         AND     R13, R0              ; 40  80  00  11000011  No overlap bits gives 0
+        PUSH    R13                  ;W00FFFF
+        POP     R13
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test AND between a register
                                      ;                       and an immediate
         ANDI    R28, $FF             ; 55  FF  55  11000001  FF AND anything is itself
         ANDI    R16, $FF             ; FF  FF  FF  11010101  FF AND FF is FF
+        PUSH    R28                  ;W55FFFF
+        PUSH    R16                  ;WFFFFFE
+        POP     R16
+        POP     R28
         ANDI    R16, $00             ; FF  00  00  11000011  00 AND anything is 0
         ANDI    R29, $FF             ; AA  FF  AA  11010101  anything AND FF is itself
+        PUSH    R16                  ;W00FFFF
+        PUSH    R29                  ;WAAFFFE
+        POP     R29
+        POP     R16
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test arithmetic shift right
+        LDI     R16, $FF
         ASR     R16                  ; FF  XX  FF  11010101  FF shifted always give FF
         ASR     R27                  ; 00  XX  00  11000010  00 shifted always gives 00
         ASR     R30                  ; 70  XX  38  11000000  Test a random case where 0
                                      ;                       is shifted out
         ASR     R8                   ; DF  XX  EF  11010101  Test a random case where 1
                                      ;                       is shifted out
+        PUSH    R16                  ;WFFFFFF
+        PUSH    R27                  ;W00FFFE
+        PUSH    R30                  ;W38FFFD
+        PUSH    R8                   ;WEFFFFC
+        POP     R8
+        POP     R30
+        POP     R27
+        POP     R16
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test one's complement, which
                                      ;                       inverts all of the bits
         COM     R16                  ; FF  XX  00  11000011  Invert all 1s to all 0s
+        PUSH    R16                  ;W00FFFF
+        POP     R16
         COM     R16                  ; 00  XX  FF  11010101  Invert all 0s to all 1s
+        PUSH    R16                  ;WFFFFFF
+        POP     R16
         COM     R28                  ; 55  XX  AA  11010101  Arbitrary case
+        PUSH    R28                  ;WAAFFFF
+        POP     R28
         COM     R28                  ; AA  XX  55  11000001  Arbitrary case
+        PUSH    R28                  ;W55FFFF
+        POP     R28
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Compare should set flags
@@ -221,6 +280,8 @@ Start:                               ; start of the test code
         DEC     R17                  ; 00  XX  FF  11010101  0 - 1 wraps around to FF
         DEC     R0                   ; 80  XX  7F  11011001  0x80 - 1 sets all other bits
         DEC     R17                  ; FF  XX  FE  11010101  FF - 1 only clears bit 0
+        PUSH    R17                  ;WFEFFFF
+        POP     R17
 
         MOV     R17, R28
                                      ; OpA OpB Res   Flags   Desc
@@ -230,6 +291,8 @@ Start:                               ; start of the test code
         EOR     R18, R17             ; 00  AA  AA  11010101  00 XOR anything yields itself
         EOR     R18, R16             ; AA  FF  55  11000001  FF XOR anything inverts itself
         EOR     R24, R24             ; 45  45  00  11000011  anything XOR itself is 00
+        PUSH    R18                  ;W55FFFF
+        POP     R18
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test increment.  We want to
@@ -240,6 +303,8 @@ Start:                               ; start of the test code
         INC     R22                  ; FE  XX  FF  11010101  Can have all bits set
         INC     R22                  ; FF  XX  00  11000011  FF + 1 wraps to 0
         INC     R0                   ; 7F  XX  80  11001101  7F + 1 carries +1 for each bit
+        PUSH    R0                   ;W80FFFF
+        POP     R0
 
         DEC     R26
         LDI     R31, $80
@@ -254,6 +319,8 @@ Start:                               ; start of the test code
                                      ;                       still 00
         LSR     R31                  ; 80  XX  40  11000000  Shift right with only 1 bit
                                      ;                       set
+        PUSH    R31                  ;W40FFFF
+        POP     R31
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Negates what is in the
@@ -265,6 +332,8 @@ Start:                               ; start of the test code
                                      ;                       leaves high bit set
         NEG     R21                  ; 7E  XX  82  11110101  Arbitrary case with clear
                                      ;                       sign bit should set sign bit
+        PUSH    R21                  ;W82FFFF
+        POP     R21
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test logical OR on two
@@ -272,11 +341,17 @@ Start:                               ; start of the test code
         OR      R18, R17             ; 55  AA  FF  11110101  No like bits OR'd gives FF
         OR      R18, R28             ; FF  55  FF  11110101  FF OR anything is FF
         OR      R22, R17             ; 00  AA  AA  11110101  00 OR anything is itself
+        PUSH    R18                  ;WFFFFFF
+        PUSH    R22                  ;WAAFFFE
+        POP     R22
+        POP     R18
 
                                      ; OpA OpB Res   Flags   Desc
         ORI     R17, $FF             ; AA  FF  FF  11110101  anything OR FF is FF
         ORI     R17, $00             ; FF  00  FF  11110101  anything OR 00 is itself
         ORI     R25, $7D             ; 7D  7D  7D  11100001  anything OR itself is itself
+        PUSH    R25                  ;W7DFFFF
+        POP     R25
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test rotate right through
@@ -291,6 +366,8 @@ Start:                               ; start of the test code
                                      ;                       high bit
         ROR     R16                  ; 00  XX  00  11100010  00 rotated is always 0 when
                                      ;                       CF = 0
+        PUSH    R19                  ;WB8FFFF
+        POP     R19
 
         LDI     R31, $50
                                      ; OpA OpB Res   Flags   Desc
@@ -305,6 +382,8 @@ Start:                               ; start of the test code
                                      ;                       1 after in operation
         SBC     R10, R20             ; 7F  00  7E  11000000  Test subtracting 0 with CF = 1
                                      ;                       results in reg - 1
+        PUSH    R10                  ;W7EFFFF
+        POP     R10
 
         LDI     R25, $7F
         LDI     R24, $71
@@ -312,6 +391,8 @@ Start:                               ; start of the test code
                                      ;                       Subtraction test continued
         SBCI    R26, $7F             ; 7F  7F  00  11000000  Anything minus itself is 0
                                      ;                       when CF = 0
+        PUSH    R26                  ;W00FFFF
+        POP     R26
         SBC     R25, R17             ; 7F  FF  80  11000000  Arbitrary case with CF = 0
         SBCI    R24, $A0             ; 71  A0  D0  11001101  Arbitrary case with CF = 1
 
@@ -324,6 +405,10 @@ Start:                               ; start of the test code
                                      ; 00  XX  FF  11010101  High word
         SBIW    R24, $00             ; FD  00  FD  --------  Anything minus 00 is itself
                                      ; FF  XX  FF  11010100  High word
+        PUSH    R25                  ;WFFFFFF
+        PUSH    R24                  ;WFDFFFE
+        POP     R24
+        POP     R25
 
         LDI     R30, $7F
         LDI     R31, $7F
@@ -332,6 +417,8 @@ Start:                               ; start of the test code
         SUB     R16, R17             ; 01  FF  02  11100001  Test when A < B that we see
                                      ;                       wrap around
         SUB     R31, R20             ; 7F  00  7F  11000000  Test A - 0 = A
+        PUSH    R16                  ;W02FFFF
+        POP     R16
 
         LDI     R30, $50
         LDI     R31, $71
@@ -341,6 +428,8 @@ Start:                               ; start of the test code
         SUBI    R20, $7F             ; 00  7F  81  11110101  Test wraparound
         SUBI    R30, $70             ; 50  70  E0  11010101  Test when A < B
         SUBI    R31, $00             ; 71  00  71  11000000  Test A - 0 = A
+        PUSH    R30                  ;WE0FFFF
+        POP     R30
 
                                      ; OpA OpB Res   Flags   Desc
                                      ;                       Test swap nibbles function,
@@ -350,6 +439,8 @@ Start:                               ; start of the test code
         SWAP    R21                  ; 82  XX  28  11001101  Arbitrary case
         SWAP    R10                  ; 7E  XX  E7  11001101  Arbitrary case
         SWAP    R27                  ; 00  XX  00  11001101  00 should swap to be 00
+        PUSH    R10                  ;WE7FFFF
+        POP     R10
 
                                      ; Test PUSH and POP instructions, which will write
                                      ; and read from data memory
@@ -590,12 +681,6 @@ TestSkips:                           ;                       test skip instructi
         JMP     TestSkips
         CPSE    R22, R24             ;                       don't skip
         LDI     R22, $80
-        BCLR    6                    ;                       prepare for skip if bit set/clear
-        BCLR    3
-        BCLR    7
-        BSET    0
-        BSET    5
-        BCLR    1
         SBRC    R22, 6               ;                       should skip a 1 byte instruction
         LDI     R22, $FF
         SBRC    R22, 3               ;                       should skip a 2 byte instruction

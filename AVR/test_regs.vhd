@@ -149,6 +149,7 @@ architecture toplevel of REG_TEST is
             ProgDB      : in  address_t;        -- instruction
             status      : in  status_t;         -- the flags
 
+            Rdb         : in  std_logic;        -- b'th bit in R, used for skipping
             Eq          : in  std_logic;        -- '1' when reg A = reg B
 
             BLD         : out std_logic;        -- '1' when BLD
@@ -261,6 +262,7 @@ begin
             IR,
             SREG,
 
+            '0',
             '0',
 
             BLD,

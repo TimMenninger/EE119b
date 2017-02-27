@@ -104,9 +104,6 @@ architecture dataflow of Instruction is
     signal IP       : address_t     := "0000000000000000";
     signal IPInc    : address_t     := "0000000000000000";
 
-    -- The instruction register
-    signal IR       : instruction_t := "0000000000000000";
-
     -- When the IP comes from the stack (any RET call), it comes in bytes, so we
     -- register the low byte
     signal memInLow  : data_t       := "00000000";

@@ -138,6 +138,7 @@ architecture testAVR of AVR_CPU is
             ProgDB      : in  address_t;        -- instruction
             status      : in  status_t;         -- the flags
 
+            Rdb         : in  std_logic;        -- b'th bit in R, used for skipping
             Eq          : in  std_logic;        -- '1' when reg A = reg B
 
             BLD         : out std_logic;        -- '1' when BLD
@@ -420,6 +421,7 @@ begin
         Reset,              -- IN       System reset
         ProgDB,             --          Instruction register contents
         SREG,               --          Status register
+        Rdb,                --          b'th bit of register
         Eq,                 --          '0' when register outs are equal
         BLD,                --          '1' when BLD instruction occurring
         BST,                --          '1' when BST instruction occurring

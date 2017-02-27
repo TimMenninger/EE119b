@@ -127,6 +127,7 @@ entity ControlUnit is
         ProgDB      : in  address_t;        -- instruction
         status      : in  status_t;         -- the flags
 
+        Rdb         : in  std_logic;        -- b'th bit in R, used for skipping
         Eq          : in  std_logic;        -- '1' when reg A = reg B
 
         BLD         : out std_logic;        -- '1' when BLD
@@ -343,7 +344,7 @@ begin
                     --      immed: Add value from instruction
                     --      Don't fetch instruction for second half
                     immed <= "000000" &
-                    instruction(7 downto 6) & instruction(3 downto 0);
+                        instruction(7 downto 6) & instruction(3 downto 0);
                     fetch <= '0';
                 when others =>
                     -- On second clock:
@@ -2221,6 +2222,9 @@ begin
 
             -- Bit select is in instruction
             sel <= instruction(2 downto 0);
+
+            -- Select the register from the instruction
+            regSelA <= instruction(8 downto 4);
         end if;
 
         -- Skip if bit set
@@ -2230,6 +2234,9 @@ begin
 
             -- Bit select is in instruction
             sel <= instruction(2 downto 0);
+
+            -- Select the register from the instruction
+            regSelA <= instruction(8 downto 4);
         end if;
 
         -- Finally, if we are skipping, we want to "undo" any and all control signals
@@ -2243,6 +2250,8 @@ begin
             else
                 numClks <= 0;
             end if;
+
+            skip <= "00";
 
             -- We always fetch an incremented IP when we are skipping.
             fetch    <= '1';       -- Always fetch incremented IP
@@ -2283,10 +2292,10 @@ begin
                     doSkip <= Eq;       -- Eq is 1 when regA = regB
                 when "10" =>
                     -- Skip when the bit was 0
-                    doSkip <= not status(conv_integer(instruction(2 downto 0)));
+                    doSkip <= not Rdb;
                 when "11" =>
                     -- Skip when the bit was 1
-                    doSkip <= status(conv_integer(instruction(2 downto 0)));
+                    doSkip <= Rdb;
                 when others =>
                     if (doSkip = '1') then
                         doSkip <= twoWords; -- Keep skipping if this is active
