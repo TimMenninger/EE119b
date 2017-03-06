@@ -10,4 +10,6 @@ AVR/*.lst
 AVR/*.vcd
 AVR/testcases/__pycache__/*
 AVR/*_testbench
+Life/*.o
+Life/*.cf
 Notes/*
