@@ -19,8 +19,6 @@ entity Cell8 is
         aliveS      : in  std_logic;    -- Cell on south      side alive when high
         aliveSW     : in  std_logic;    -- Cell on south west side alive when high
 
-        TickOut     : out std_logic;    -- Passes along tick signal horizontally
-        ShiftOut    : out std_logic;    -- Passes along shift signal horizontally
         DataOut     : out std_logic     -- Shifted out, contains alive/not alive
     );
 end entity;
@@ -36,7 +34,9 @@ begin
     -- This process propagates the state of the cell onto the output.  If shift is
     -- active, then we just shift what was on the left to the right cell.
     process (Tick) is
+        variable surroundings : std_logic_vector(8 downto 0); -- Surrounding cells
     begin
+        -- Only update on rising edge of clock
         if (rising_edge(Tick)) then
             DataOut <= (aliveW and Shift) or (alive and not Shift);
         end if;
