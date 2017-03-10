@@ -1,4 +1,4 @@
-
+-- No functionality for 1x1 array.  It adds logic for a use case that nobody cares about
 
 -- bring in the necessary packages
 library  ieee;
@@ -9,12 +9,11 @@ entity GameOfLife is
     generic (
         n       : integer                   -- We will create n^2 mesh
     );
-
     port (
         Tick    : in  std_logic;            -- Cells update on tick rising edge
         Shift   : in  std_logic;            -- Shift data through rows on high
-        DataIn  : in  std_logic_vector(n-1 downto 0); -- Data to shift in
-        DataOut : out std_logic_vector(n-1 downto 0)  -- Data shifted out
+        DataIn  : in  std_logic_vector(0 to n-1); -- Data to shift in
+        DataOut : out std_logic_vector(0 to n-1)  -- Data shifted out
     );
 end entity;
 
@@ -22,7 +21,7 @@ end entity;
 architecture mesh of GameOfLife is
 
     -- We use the cell component for each value in the mesh
-    component Cell8 is
+    component Cell is
         port (
             Tick        : in  std_logic;    -- Indicates time tick passed, active high
             Shift       : in  std_logic;    -- Shift data through rows (W to E) when high
@@ -40,28 +39,24 @@ architecture mesh of GameOfLife is
         );
     end component;
 
-    -- This type is everything contained in one cell
-    type Cell is
+    -- This type is every output for each cell.  We make a 2d array of these so we can
+    -- neatly hook up cell outputs to inputs
+    type CellRecord is
         record
-            -- All of these contain whether adjacent cell is dead or alive
-            W     : std_logic;
-            NW    : std_logic;
-            N     : std_logic;
-            NE    : std_logic;
-            E     : std_logic;
-            SE    : std_logic;
-            S     : std_logic;
-            SW    : std_logic;
             -- The state of this cell
             alive : std_logic;
         end record;
 
     -- Create the types for a 2D array of cells
-    type CellRow   is array(0 to n-1) of Cell;
+    type CellRow   is array(0 to n-1) of CellRecord;
     type CellArray is array(0 to n-1) of CellRow;
 
     -- Create the array of cells
     signal Cells : CellArray := (others => (others => (others => '0')));
+
+    -- This is how we know if we are shifting in from the left side, or not shifting and
+    -- treating it as a ghost column of dead cells
+    signal leftColIn : std_logic_vector(0 to n-1);
 
 begin
 
@@ -70,19 +65,37 @@ begin
     -- of the array are dead.
 
     -- Top row
-    TopRowCells: for j in 0 to n-1 generate
-        Cell_0_j: Cell8 port map (
+    TopRowCells: for j in 1 to n-2 generate
+        Cell_0_j: Cell port map (
             Tick, Shift,
-            '0', '0', '0', '0', '0', '0', '0', '0',
+
+            Cells( 0 )(j-1).alive,  -- West cell
+            '0',                    -- Northwest cell
+            '0',                    -- North cell
+            '0',                    -- Northeast cell
+            Cells( 0 )(j+1).alive,  -- East cell
+            Cells( 1 )(j+1).alive,  -- Southeast cell
+            Cells( 1 )( j ).alive,  -- South cell
+            Cells( 1 )(j-1).alive,  -- Southwest cell
+
             Cells(0)(j).alive
         );
     end generate;
 
     -- Bottom row
-    BottomRowCells: for j in 0 to n-1 generate
-        Cell_n1_j: Cell8 port map (
+    BottomRowCells: for j in 1 to n-2 generate
+        Cell_n1_j: Cell port map (
             Tick, Shift,
-            '0', '0', '0', '0', '0', '0', '0', '0',
+
+            Cells(n-1)(j-1).alive,  -- West cell
+            Cells(n-2)(j-1).alive,  -- Northwest cell
+            Cells(n-2)( j ).alive,  -- North cell
+            Cells(n-2)(j+1).alive,  -- Northeast cell
+            Cells(n-1)(j+1).alive,  -- East cell
+            '0',                    -- Southeast cell
+            '0',                    -- South cell
+            '0',                    -- Southwest cell
+
             Cells(n-1)(j).alive
         );
     end generate;
@@ -90,23 +103,113 @@ begin
     -- Left and right columns (skipping top and bottom to avoid redundancy)
     SideColumnsCells: for i in 1 to n-2 generate
         -- Left column
-        Cell_i_0: Cell8 port map (
+        leftColIn(i) <= Shift and DataIn(i); -- Either dead cell, or shifting in
+        Cell_i_0: Cell port map (
             Tick, Shift,
-            '0', '0', '0', '0', '0', '0', '0', '0',
-            Cells(0)(i).alive
+
+            leftColIn(i),           -- West cell to accommodate shifting in
+            '0',                    -- Northwest cell
+            Cells(i-1)( 0 ).alive,  -- North cell
+            Cells(i-1)( 1 ).alive,  -- Northeast cell
+            Cells( i )( 1 ).alive,  -- East cell
+            Cells(i+1)( 1 ).alive,  -- Southeast cell
+            Cells(i+1)( 0 ).alive,  -- South cell
+            '0',                    -- Southwest cell
+
+            Cells(i)(0).alive
         );
         -- Right column
-        Cell_i_n1: Cell8 port map (
+        Cell_i_n1: Cell port map (
             Tick, Shift,
-            '0', '0', '0', '0', '0', '0', '0', '0',
-            Cells(n-1)(i).alive
+
+            Cells( i )(n-2).alive,  -- West cell
+            Cells(i-1)(n-2).alive,  -- Northwest cell
+            Cells(i-1)(n-1).alive,  -- North cell
+            '0',                    -- Northeast cell
+            '0',                    -- East cell
+            '0',                    -- Southeast cell
+            Cells(i+1)(n-1).alive,  -- South cell
+            Cells(i+1)(n-2).alive,  -- Southwest cell
+
+            Cells(i)(n-1).alive
         );
+        -- Data output comes from right column
+        DataOut(i) <= Cells(i)(n-1).alive;
     end generate;
+
+    -- Handle the corners separately
+    -- Top Left Corner
+    leftColIn(0) <= Shift and dataIn(0);
+    Cell_0_0: Cell port map (
+        Tick, Shift,
+
+        leftColIn(0),           -- West cell
+        '0',                    -- Northwest cell
+        '0',                    -- North cell
+        '0',                    -- Northeast cell
+        Cells(0)(1).alive,      -- East cell
+        Cells(1)(1).alive,      -- Southeast cell
+        Cells(1)(0).alive,      -- South cell
+        '0',                    -- Southwest cell
+
+        Cells(0)(0).alive
+    );
+    -- Top Right Corner
+    Cell_0_n1: Cell port map (
+        Tick, Shift,
+
+        Cells(0)(n-2).alive,    -- West cell
+        '0',                    -- Northwest cell
+        '0',                    -- North cell
+        '0',                    -- Northeast cell
+        '0',                    -- East cell
+        '0',                    -- Southeast cell
+        Cells(1)(n-1).alive,    -- South cell
+        Cells(1)(n-2).alive,    -- Southwest cell
+
+        Cells(0)(n-1).alive
+    );
+    -- Data output comes from right column
+    DataOut(0) <= Cells(0)(n-1).alive;
+    -- Bottom Right Corner
+    Cell_n1_n1: Cell port map (
+        Tick, Shift,
+
+        Cells(n-1)(n-2).alive,  -- West cell
+        Cells(n-2)(n-2).alive,  -- Northwest cell
+        Cells(n-2)(n-1).alive,  -- North cell
+        '0',                    -- Northeast cell
+        '0',                    -- East cell
+        '0',                    -- Southeast cell
+        '0',                    -- South cell
+        '0',                    -- Southwest cell
+
+        Cells(n-1)(n-1).alive
+    );
+    -- Data output comes from right column
+    DataOut(n-1) <= Cells(n-1)(n-1).alive;
+    -- Bottom Left Corner
+    leftColIn(n-1) <= Shift and dataIn(n-1);
+    Cell_n1_0: Cell port map (
+        Tick, Shift,
+
+        leftColIn(n-1),         -- West cell
+        '0',                    -- Northwest cell
+        Cells(n-2)(0).alive,    -- North cell
+        Cells(n-2)(1).alive,    -- Northeast cell
+        Cells(n-1)(1).alive,    -- East cell
+        '0',                    -- Southeast cell
+        '0',                    -- South cell
+        '0',                    -- Southwest cell
+
+        Cells(n-1)(0).alive
+    );
+
 
     -- Fill in the rest of the matrix
     MiddleRowsCells: for i in 1 to n-2 generate
         MiddleCells: for j in 1 to n-2 generate
-            Cell_i_j: Cell8 port map (
+            Cell_i_j: Cell port map (
                 Tick, Shift,
 
                 Cells( i )(j-1).alive,  -- West cell
