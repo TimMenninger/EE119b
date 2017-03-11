@@ -15,4 +15,5 @@ Life/*.cf
 Life/*.pyc
 Life/*.vcd
 Life/*_tb
+Life/life_vectors.txt
 Notes/*

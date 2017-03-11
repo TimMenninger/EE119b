@@ -20,4 +20,4 @@ tidy:
 
 clean:
 	make tidy
-	rm -f *.vcd $(TB_EXE)
+	rm -f *.vcd life_vectors.txt $(TB_EXE)
