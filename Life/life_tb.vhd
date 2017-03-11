@@ -106,7 +106,7 @@ begin
         -- Variables for reading lines
         variable intLine        : line;
         variable arrLine        : line;
-        variable row            : integer;
+        variable row            : bit_vector(0 to n-1);
         variable num            : integer;
         variable numTicks       : integer;
         variable cells          : CellArray := (others => (others => '0'));
@@ -348,7 +348,9 @@ begin
             for i in 0 to n-1 loop
                 readline(cellArrays, arrLine);
                 read(arrLine, row);
-                cells(i) := std_logic_vector(to_unsigned(row, n));
+                for j in 0 to n-1 loop
+                    cells(i) := to_stdlogicvector(row);
+                end loop;
             end loop;
 
             -- Run for specified clocks
@@ -362,12 +364,13 @@ begin
             end loop;
 
             Shift <= '1';
-            wait for 50 ns;
+            wait for 45 ns;
             for i in 0 to n-1 loop
                 -- Fill expected vector
                 for j in 0 to n-1 loop
                     DataIn(j) <= cells(j)(n-1-i);
                 end loop;
+                wait for 5 ns;
                 -- If there were 0 ticks, we don't care about the output anymore
                 -- for this iteration because we are switching tests
                 if (numTicks /= 0) then
@@ -381,7 +384,7 @@ begin
                 Tick <= '1';
                 wait for 50 ns;
                 Tick <= '0';
-                wait for 50 ns;
+                wait for 45 ns;
             end loop;
         end loop;
 
