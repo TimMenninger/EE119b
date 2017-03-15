@@ -1,4 +1,15 @@
-
+-----------------------------------------------------------------------------------------
+--
+-- cell.vhd
+--
+-- This is the cell entity, or the processing element for the systolic array that becomes
+-- the life simulator.  It takes signals from all surrounding cells and uses a mux to
+-- determine whether its next state is alive or dead.
+--
+-- Revision History:
+--      07 Mar 17   Tim Menninger   Created
+--
+-----------------------------------------------------------------------------------------
 
 -- bring in the necessary packages
 library  ieee;

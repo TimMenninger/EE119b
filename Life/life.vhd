@@ -1,4 +1,16 @@
--- No functionality for 1x1 array.  It adds logic for a use case that nobody cares about
+-----------------------------------------------------------------------------------------
+--
+-- life.vhd
+--
+-- This is entity that connects the cells in the systolic array for life simulation.  It
+-- does not support a 1x1 array because this case would require extra logic for a
+-- scenario nobody cares about (all starting configurations end in the one cell dying
+-- and remaining dead indefinitely).
+--
+-- Revision History:
+--      07 Mar 17   Tim Menninger   Created
+--
+-----------------------------------------------------------------------------------------
 
 -- bring in the necessary packages
 library  ieee;
@@ -7,7 +19,7 @@ use  ieee.std_logic_1164.all;
 -- Entity for game of life
 entity GameOfLife is
     generic (
-        n       : integer                   -- We will create n^2 mesh
+        n       : integer := 16             -- We will create n^2 mesh
     );
     port (
         Tick    : in  std_logic;            -- Cells update on tick rising edge

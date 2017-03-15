@@ -52,4 +52,4 @@ tidy:
 	rm -rf *.o *.cf *.ucf *.lst .DS_Store testcases/__pycache__ testcases/*.pyc ../*.pyc
 
 clean:
-	rm -rf *.o *.cf *.ucf *.lst *.vcd $(MEM_TB_FILE) $(ALU_TB_FILE) $(REG_TB_FILE) testcases/__pycache__ testcases/*.pyc ../*.pyc
+	rm -rf *.o *.cf *.ucf *.lst *.vcd testcases/*_vectors.txt $(MEM_TB_FILE) $(ALU_TB_FILE) $(REG_TB_FILE) $(AVR_TB_FILE) testcases/__pycache__ testcases/*.pyc ../*.pyc

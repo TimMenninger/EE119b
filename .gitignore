@@ -17,3 +17,5 @@ Life/*.vcd
 Life/*_tb
 Life/life_vectors.txt
 Notes/*
+HW9/~*
+HW9/*.pyc
