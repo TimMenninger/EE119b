@@ -1,5 +1,5 @@
 #
-# This tests all O(n^n) configurations of nodes stuck at 0 or 1, or not stuck for
+# This tests all O(2^n) configurations of nodes stuck at 0 or 1, or not stuck, for
 # n = 24.
 #
 
@@ -236,7 +236,8 @@ def run():
             error += NOT(update(0,1,0,0,0,0,0, stuck) == (0, 0, 0, 0))
             error += NOT(update(0,0,0,1,0,0,0, stuck) == (0, 0, 0, 0))
             error += NOT(update(1,1,0,1,1,1,0, stuck) == (0, 1, 0, 0))
-            error += NOT(update(0,1,1,1,1,0,0, stuck) == (0, 0, 1, 0))
+            error += NOT(update(0,1,1,1,1,1,0, stuck) == (0, 0, 1, 0))
+            error += NOT(update(1,1,1,1,1,0,0, stuck) == (0, 1, 0, 0))
             error += NOT(update(0,0,1,1,1,1,0, stuck) == (0, 0, 0, 0))
             error += NOT(update(0,1,1,0,0,1,0, stuck) == (0, 0, 0, 0))
             error += NOT(update(1,1,1,1,1,1,0, stuck) == (0, 0, 0, 1))
